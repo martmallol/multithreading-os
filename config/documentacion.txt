@@ -1,0 +1,5 @@
+ValorX ValorY CantidadJugadores
+BanderaRojaX BanderaRojaY
+BanderaAzulX BanderaAzulY
+coordanadasInicialesRojo
+coordenadasInicialesAzul

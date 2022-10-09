@@ -14,23 +14,22 @@ class gameMaster {
 private:
     // Atributos Privados
     int nro_ronda = 0;
-    int x, y, jugadores_por_equipos;
-    vector<vector<color>> tablero;
-    vector<coordenadas> pos_jugadores_azules, pos_jugadores_rojos;
-    coordenadas pos_bandera_roja, pos_bandera_azul;
-    color turno;
+    int x, y, jugadores_por_equipos; 
+    vector<vector<color>> tablero; 
+    vector<coordenadas> pos_jugadores_azules, pos_jugadores_rojos; 
+    coordenadas pos_bandera_roja, pos_bandera_azul; 
+    color turno; 
     estrategia strat;
 	
-    //
-    //...
-    //
+    // Agregamos mas atributos
+    
 
     // Métodos privados
     color obtener_coordenadas(coordenadas coord);
     void mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo);
-    //
-    //...
-    //
+    
+    // Agregamos mas metodos
+    void cambiarEstrategia(estrategia strategy);
  
 public:
     // Atributos públicos
@@ -38,8 +37,9 @@ public:
     void termino_ronda(color equipo); // Marca que un jugador terminó la ronda
     int mover_jugador(direccion dir, int nro_jugador);
     color ganador = INDEFINIDO;
-    //
-    //...
+    
+    // Agregamos mas atributos
+    mutex mtx;
     //
 
     // Métodos públicos
@@ -52,7 +52,8 @@ public:
     bool es_posicion_valida(coordenadas pos);
     bool es_color_libre(color color_tablero);
 	coordenadas proxima_posicion(coordenadas anterior, direccion movimiento); // Calcula la proxima posición a moverse	
-    //
+    
+    // Agregamos mas metodos
     //...
     //
 };

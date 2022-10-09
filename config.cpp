@@ -31,5 +31,4 @@ Config::Config() {
     }
 
     
-};
-
+}

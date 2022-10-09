@@ -36,7 +36,7 @@ gameMaster::gameMaster(Config config) {
 	assert((config.bandera_roja.first == 1)); // Bandera roja en la primera columna
 	assert(es_posicion_valida(config.bandera_roja)); // Bandera roja en algún lugar razonable
 
-	assert((config.bandera_azul.first == x-1)); // Bandera azul en la primera columna
+	assert((config.bandera_azul.first == x-1)); // Bandera azul en la ultima columna
 	assert(es_posicion_valida(config.bandera_azul)); // Bandera roja en algún lugar razonable
 
 	assert(config.pos_rojo.size() == config.cantidad_jugadores);
@@ -81,6 +81,10 @@ gameMaster::gameMaster(Config config) {
     // Insertar código que crea necesario de inicialización 
 }
 
+void gameMaster::cambiarEstrategia(estrategia strategy) {
+	strat = strategy;
+}
+
 void gameMaster::mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo){
     assert(es_color_libre(tablero[pos_nueva.first][pos_nueva.second]));
     tablero[pos_anterior.first][pos_anterior.second] = VACIO; 
@@ -93,12 +97,38 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 	// Que no se puedan mover 2 jugadores a la vez
     // setear la variable ganador
     // Devolver acorde a la descripción
+	lock_guard<mutex> lock(mtx); 
+	color color = turno;
+	coordenadas posAnterior; bool noHayNadie; bool sePuedeMoverAhi; bool gano; // indefinidas por ahora
+	
+	posAnterior = (color == ROJO) ? pos_jugadores_rojos[nro_jugador] : 
+									pos_jugadores_azules[nro_jugador];
+
+	coordenadas posProxima = proxima_posicion(posAnterior, dir);
+	noHayNadie = es_color_libre(tablero[posProxima.first][posProxima.second]); 
+	sePuedeMoverAhi = es_posicion_valida(posProxima) && noHayNadie;
+	
+	if(sePuedeMoverAhi) {
+		mover_jugador_tablero(posAnterior, posProxima, color);
+		(color == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
+						  pos_jugadores_azules[nro_jugador] = posProxima;
+	}	
+
+	// Chequear ganador
+	gano = (color == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
+	if (gano) ganador = color;
+	
+	return (gano ? 0 : nro_ronda); // "devuelve el nro de ronda o 0 si el equipo gano"
 }
 
 
 void gameMaster::termino_ronda(color equipo) {
 	// FIXME: Hacer chequeo de que es el color correcto que está llamando
 	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
+	if(equipo == turno) {
+		// (equipo == ROJO) ? sem_wait(&turno_rojo) : sem_wait(&turno_azul);
+		turno = (equipo == ROJO) ? AZUL : ROJO;
+	}
 }
 
 bool gameMaster::termino_juego() {

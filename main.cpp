@@ -11,7 +11,6 @@
 using namespace std;
 
 const estrategia strat = SECUENCIAL;
-const int quantum = 10;
 
 int main(){
     Config config = *(new Config());

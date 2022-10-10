@@ -78,7 +78,9 @@ gameMaster::gameMaster(Config config) {
 	this->turno = ROJO;
 
     cout << "SE HA INICIALIZADO GAMEMASTER CON EXITO" << endl;
-    // Insertar código que crea necesario de inicialización 
+    // Insertar código que crea necesario de inicialización
+	sem_init(&turno_rojo,0,1);
+	sem_init(&turno_azul,0,1); 
 }
 
 void gameMaster::setearEstrategia(estrategia strategy, color equipo) {
@@ -87,6 +89,10 @@ void gameMaster::setearEstrategia(estrategia strategy, color equipo) {
 
 void gameMaster::setearQuantum(int q, color equipo) {
 	quantumsOriginales[equipo] = q;
+}
+
+color gameMaster::getTurno() {
+	return turno;
 }
 
 void gameMaster::mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo){
@@ -134,15 +140,15 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 void gameMaster::termino_ronda(color equipo) {
 	// FIXME: Hacer chequeo de que es el color correcto que está llamando
 	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
-	(equipo == ROJO) ? sem_wait(&turno_rojo) : sem_wait(&turno_azul);
+	// (equipo == ROJO) ? sem_wait(&turno_rojo) : sem_wait(&turno_azul);
 	if(equipo == turno && quantum <= 0) {	
 		string printEquipo = (equipo == ROJO) ? "rojo" : "azul";
 		//busy waiting
 		while(moviendose > 0) {
-			printf("Jugador del equipo %s: Esperando que terminen mis compas", printEquipo);
+			cout << "Jugador del equipo " << printEquipo << ": Esperando que terminen mis compas" << endl;
 		};
 		turno = (equipo == ROJO) ? AZUL : ROJO;
-		printf("Jugador del equipo %s: Termino ronda");
+		cout << "Jugador del equipo " << printEquipo << ": Termino ronda" << endl;
 		quantum = quantumsOriginales[turno];
 		stratActual = strats[turno];
 	}

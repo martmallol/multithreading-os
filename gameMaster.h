@@ -58,6 +58,7 @@ public:
     // Agregamos mas metodos
     void setearEstrategia(estrategia strategy, color equipo);
     void setearQuantum(int q, color equipo);
+    color getTurno();
 };
 
 #endif // GAMEMASTER_H

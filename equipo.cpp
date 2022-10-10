@@ -15,6 +15,7 @@ void Equipo::jugador(int nro_jugador) {
 	//
 	// ...
 	//
+	(equipo == ROJO) ? sem_wait(&belcebu->turno_rojo) : sem_wait(&belcebu->turno_azul);
 
 	while(!this->belcebu->termino_juego()) { // Chequear que no haya una race condition en gameMaster
 		switch(this->strat) {
@@ -47,9 +48,13 @@ void Equipo::jugador(int nro_jugador) {
 		}	
 		// Termino ronda ? Recordar llamar a belcebu...
 		// OJO. Esto lo termina un jugador... 
-		//
-		// ...
-		//
+		if(quantum_restante == 0 || -1) {
+			belcebu->termino_ronda(equipo);
+		} else if (equipo == ROJO) {
+			sem_post(&belcebu->turno_rojo);
+		} else sem_post(&belcebu->turno_azul);
+		
+		(equipo == ROJO) ? sem_wait(&belcebu->turno_rojo) : sem_wait(&belcebu->turno_azul);
 	}
 	
 }
@@ -73,9 +78,9 @@ Equipo::Equipo(gameMaster *belcebu, color equipo,
 void Equipo::comenzar() {
 	// Arranco cuando me toque el turno 
 	// TODO: Quien empieza ? 
-	//
-	// ...
-	//
+	
+	// busy waiting
+	// while(belcebu->getTurno() == equipo) {}
 	
 	// Creamos los jugadores
 	for(int i=0; i < cant_jugadores; i++) {

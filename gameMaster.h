@@ -19,17 +19,20 @@ private:
     vector<coordenadas> pos_jugadores_azules, pos_jugadores_rojos; 
     coordenadas pos_bandera_roja, pos_bandera_azul; 
     color turno; 
-    estrategia strat;
+    estrategia stratActual;
 	
     // Agregamos mas atributos
-    
+    int quantum; // si es -1, la estrategia no cuenta con quantum. Podria ser un puntero al quantum del equipo
+    int quantumsOriginales[2];
+    estrategia strats[2];
+    int moviendose = 0; // el jugador esta en proceso de moverse
 
     // Métodos privados
     color obtener_coordenadas(coordenadas coord);
     void mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo);
     
     // Agregamos mas metodos
-    void cambiarEstrategia(estrategia strategy);
+    
  
 public:
     // Atributos públicos
@@ -40,7 +43,6 @@ public:
     
     // Agregamos mas atributos
     mutex mtx;
-    //
 
     // Métodos públicos
     bool termino_juego();
@@ -54,8 +56,8 @@ public:
 	coordenadas proxima_posicion(coordenadas anterior, direccion movimiento); // Calcula la proxima posición a moverse	
     
     // Agregamos mas metodos
-    //...
-    //
+    void setearEstrategia(estrategia strategy, color equipo);
+    void setearQuantum(int q, color equipo);
 };
 
 #endif // GAMEMASTER_H

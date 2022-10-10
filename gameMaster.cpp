@@ -81,8 +81,12 @@ gameMaster::gameMaster(Config config) {
     // Insertar código que crea necesario de inicialización 
 }
 
-void gameMaster::cambiarEstrategia(estrategia strategy) {
-	strat = strategy;
+void gameMaster::setearEstrategia(estrategia strategy, color equipo) {
+	strats[equipo] = strategy;
+}
+
+void gameMaster::setearQuantum(int q, color equipo) {
+	quantumsOriginales[equipo] = q;
 }
 
 void gameMaster::mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo){
@@ -97,38 +101,52 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 	// Que no se puedan mover 2 jugadores a la vez
     // setear la variable ganador
     // Devolver acorde a la descripción
-	lock_guard<mutex> lock(mtx); 
-	color color = turno;
-	coordenadas posAnterior; bool noHayNadie; bool sePuedeMoverAhi; bool gano; // indefinidas por ahora
-	
-	posAnterior = (color == ROJO) ? pos_jugadores_rojos[nro_jugador] : 
-									pos_jugadores_azules[nro_jugador];
+	lock_guard<mutex> lock(mtx);
+	if(quantum > 0 || quantum == -1) {
+		moviendose++;
+		color color = turno;
+		coordenadas posAnterior; bool noHayNadie; bool sePuedeMoverAhi; bool gano; // indefinidas por ahora
+		
+		posAnterior = (color == ROJO) ? pos_jugadores_rojos[nro_jugador] : 
+										pos_jugadores_azules[nro_jugador];
 
-	coordenadas posProxima = proxima_posicion(posAnterior, dir);
-	noHayNadie = es_color_libre(tablero[posProxima.first][posProxima.second]); 
-	sePuedeMoverAhi = es_posicion_valida(posProxima) && noHayNadie;
-	
-	if(sePuedeMoverAhi) {
-		mover_jugador_tablero(posAnterior, posProxima, color);
-		(color == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
-						  pos_jugadores_azules[nro_jugador] = posProxima;
-	}	
+		coordenadas posProxima = proxima_posicion(posAnterior, dir);
+		noHayNadie = es_color_libre(tablero[posProxima.first][posProxima.second]); 
+		sePuedeMoverAhi = es_posicion_valida(posProxima) && noHayNadie;
+		
+		if(sePuedeMoverAhi) {
+			mover_jugador_tablero(posAnterior, posProxima, color);
+			(color == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
+							pos_jugadores_azules[nro_jugador] = posProxima;
+		}	
 
-	// Chequear ganador
-	gano = (color == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
-	if (gano) ganador = color;
-	
-	return (gano ? 0 : nro_ronda); // "devuelve el nro de ronda o 0 si el equipo gano"
+		// Chequear ganador
+		gano = (color == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
+		if (gano) ganador = color;
+		if (quantum > 0) quantum--;
+		return (gano ? 0 : nro_ronda); // "devuelve el nro de ronda o 0 si el equipo gano"
+	} else {
+		return nro_ronda;
+	}
+
 }
-
 
 void gameMaster::termino_ronda(color equipo) {
 	// FIXME: Hacer chequeo de que es el color correcto que está llamando
 	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
-	if(equipo == turno) {
-		// (equipo == ROJO) ? sem_wait(&turno_rojo) : sem_wait(&turno_azul);
+	(equipo == ROJO) ? sem_wait(&turno_rojo) : sem_wait(&turno_azul);
+	if(equipo == turno && quantum <= 0) {	
+		string printEquipo = (equipo == ROJO) ? "rojo" : "azul";
+		//busy waiting
+		while(moviendose > 0) {
+			printf("Jugador del equipo %s: Esperando que terminen mis compas", printEquipo);
+		};
 		turno = (equipo == ROJO) ? AZUL : ROJO;
+		printf("Jugador del equipo %s: Termino ronda");
+		quantum = quantumsOriginales[turno];
+		stratActual = strats[turno];
 	}
+	(equipo == ROJO) ? sem_post(&turno_rojo) : sem_post(&turno_azul);
 }
 
 bool gameMaster::termino_juego() {

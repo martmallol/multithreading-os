@@ -43,7 +43,6 @@ public:
     
     // Agregamos mas atributos
     mutex mtx;
-
     // Métodos públicos
     bool termino_juego();
 	int getTamx();
@@ -59,6 +58,7 @@ public:
     void setearEstrategia(estrategia strategy, color equipo);
     void setearQuantum(int q, color equipo);
     color getTurno();
+    coordenadas pos_contraria(color equipo);
 };
 
 #endif // GAMEMASTER_H

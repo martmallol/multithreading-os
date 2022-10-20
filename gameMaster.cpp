@@ -78,9 +78,15 @@ gameMaster::gameMaster(Config config) {
 	this->turno = ROJO;
 
     cout << "SE HA INICIALIZADO GAMEMASTER CON EXITO" << endl;
+	if(turno){
+		cout << "EL TURNO ACTUAL ES ROJO" << endl;
+	} else{
+		cout << "EL TURNO ACTUAL ES AZUL" << endl;
+	}
+	
     // Insertar código que crea necesario de inicialización
 	sem_init(&turno_rojo,0,1);
-	sem_init(&turno_azul,0,1); 
+	sem_init(&turno_azul,0,0); 
 }
 
 void gameMaster::setearEstrategia(estrategia strategy, color equipo) {
@@ -89,10 +95,21 @@ void gameMaster::setearEstrategia(estrategia strategy, color equipo) {
 
 void gameMaster::setearQuantum(int q, color equipo) {
 	quantumsOriginales[equipo] = q;
+	if(turno == equipo){
+		quantum = q;
+	}
 }
 
 color gameMaster::getTurno() {
 	return turno;
+}
+
+coordenadas gameMaster::pos_contraria(color equipo){
+	if(equipo == ROJO){
+		return pos_bandera_azul;
+	} else{
+		return pos_bandera_roja;
+	}
 }
 
 void gameMaster::mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo){
@@ -107,13 +124,14 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 	// Que no se puedan mover 2 jugadores a la vez
     // setear la variable ganador
     // Devolver acorde a la descripción
-	lock_guard<mutex> lock(mtx);
+	lock_guard<mutex> lock(mtx); //hace un mtx.lock()
+	//zona crítica
 	if(quantum > 0 || quantum == -1) {
 		moviendose++;
-		color color = turno;
+		//color color = this->turno;
 		coordenadas posAnterior; bool noHayNadie; bool sePuedeMoverAhi; bool gano; // indefinidas por ahora
 		
-		posAnterior = (color == ROJO) ? pos_jugadores_rojos[nro_jugador] : 
+		posAnterior = (this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] : 
 										pos_jugadores_azules[nro_jugador];
 
 		coordenadas posProxima = proxima_posicion(posAnterior, dir);
@@ -121,23 +139,30 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 		sePuedeMoverAhi = es_posicion_valida(posProxima) && noHayNadie;
 		
 		if(sePuedeMoverAhi) {
-			mover_jugador_tablero(posAnterior, posProxima, color);
-			(color == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
+			sleep(1);
+			mover_jugador_tablero(posAnterior, posProxima, this->turno);
+			(this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
 							pos_jugadores_azules[nro_jugador] = posProxima;
-		}	
+			cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME MOVI A (" << posProxima.first << ", " << posProxima.second << ")" << endl;
+		} else {
+			cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA" << endl;
+		}
 
 		// Chequear ganador
-		gano = (color == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
-		if (gano) ganador = color;
+		gano = (this->turno == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
+		if (gano) ganador = this->turno;
 		if (quantum > 0) quantum--;
+		moviendose--;
 		return (gano ? 0 : nro_ronda); // "devuelve el nro de ronda o 0 si el equipo gano"
 	} else {
 		return nro_ronda;
 	}
-
+	//se llama al mtx.unlock() automaticamente
 }
 
 void gameMaster::termino_ronda(color equipo) {
+	sleep(1);
+	cout << "termino_ronda: LISTO PARA TERMINAR LA RONDA" << endl;
 	// FIXME: Hacer chequeo de que es el color correcto que está llamando
 	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
 	// (equipo == ROJO) ? sem_wait(&turno_rojo) : sem_wait(&turno_azul);
@@ -145,14 +170,15 @@ void gameMaster::termino_ronda(color equipo) {
 		string printEquipo = (equipo == ROJO) ? "rojo" : "azul";
 		//busy waiting
 		while(moviendose > 0) {
-			cout << "Jugador del equipo " << printEquipo << ": Esperando que terminen mis compas" << endl;
+			cout << "termino_ronda: Jugador del equipo " << printEquipo << ": Esperando que terminen mis compas" << endl;
 		};
-		turno = (equipo == ROJO) ? AZUL : ROJO;
-		cout << "Jugador del equipo " << printEquipo << ": Termino ronda" << endl;
+		cout << "termino_ronda: Jugador del equipo " << printEquipo << ": Termino la ronda numero: " << nro_ronda << endl << endl;;
+		this->turno = (equipo == ROJO) ? AZUL : ROJO;
 		quantum = quantumsOriginales[turno];
 		stratActual = strats[turno];
+		nro_ronda++;
 	}
-	(equipo == ROJO) ? sem_post(&turno_rojo) : sem_post(&turno_azul);
+	(equipo == ROJO) ? sem_post(&turno_azul) : sem_post(&turno_rojo);
 }
 
 bool gameMaster::termino_juego() {
@@ -180,4 +206,3 @@ coordenadas gameMaster::proxima_posicion(coordenadas anterior, direccion movimie
 	}
 	return anterior; // está haciendo una copia por constructor
 }
-

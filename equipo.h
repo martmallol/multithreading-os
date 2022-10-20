@@ -21,7 +21,10 @@ class Equipo {
 		int cant_jugadores_que_ya_jugaron = 0;
 		vector<coordenadas> posiciones;
 		coordenadas pos_bandera_contraria;
-		//
+		
+		//Agregamos atributos
+		vector<coordenadas> posiciones_originales;
+		vector<bool> yaJugo;
 		// ...
 		//
 
@@ -30,7 +33,9 @@ class Equipo {
 		void jugador(int nro_jugador);
 		coordenadas buscar_bandera_contraria();
 		//
-		// ...
+		// Agregamos métodos privados
+		//bool jugaronTodos();
+		void inicializarVector();
 		//
 	public:
 		Equipo(gameMaster *belcebu, color equipo, 

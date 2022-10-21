@@ -139,13 +139,20 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 		sePuedeMoverAhi = es_posicion_valida(posProxima) && noHayNadie;
 		
 		if(sePuedeMoverAhi) {
-			sleep(1);
+			// sleep(1);
 			mover_jugador_tablero(posAnterior, posProxima, this->turno);
 			(this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
 							pos_jugadores_azules[nro_jugador] = posProxima;
 			cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME MOVI A (" << posProxima.first << ", " << posProxima.second << ")" << endl;
 		} else {
-			cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA" << endl;
+			// CHEQUEAMOS EL GANADOR DOS VECES: UNA EN EL ELSE Y OTRA DESPUES, CAMBIAR ESO, REDUNDANCIA
+			int banderaContraria = (this->turno == ROJO) ? BANDERA_AZUL : BANDERA_ROJA;
+			if(tablero[posProxima.first][posProxima.second] == banderaContraria) {
+				cout << "mover_jugador: LLEGUE A LA BANDERA, GANE!!!!!!!" << endl;
+			} else {
+				cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA" << endl;
+			}
+			
 		}
 
 		// Chequear ganador
@@ -161,7 +168,7 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 }
 
 void gameMaster::termino_ronda(color equipo) {
-	sleep(1);
+	//sleep(1);
 	cout << "termino_ronda: LISTO PARA TERMINAR LA RONDA" << endl;
 	// FIXME: Hacer chequeo de que es el color correcto que está llamando
 	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
@@ -178,7 +185,7 @@ void gameMaster::termino_ronda(color equipo) {
 		stratActual = strats[turno];
 		nro_ronda++;
 	}
-	(equipo == ROJO) ? sem_post(&turno_azul) : sem_post(&turno_rojo);
+	 (equipo == ROJO) ? sem_post(&turno_azul), semAzul++ : sem_post(&turno_rojo), semRojo++;
 }
 
 bool gameMaster::termino_juego() {

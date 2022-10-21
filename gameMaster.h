@@ -7,6 +7,7 @@
 #include <semaphore.h>
 #include "definiciones.h"
 #include "config.h"
+#include <atomic>
 
 using namespace std;
 
@@ -40,7 +41,9 @@ public:
     void termino_ronda(color equipo); // Marca que un jugador terminó la ronda
     int mover_jugador(direccion dir, int nro_jugador);
     color ganador = INDEFINIDO;
-    
+    atomic_int semRojo = 1;
+    atomic_int semAzul = 0;
+
     // Agregamos mas atributos
     mutex mtx;
     // Métodos públicos

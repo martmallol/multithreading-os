@@ -6,7 +6,7 @@
 #include <mutex>
 #include "../equipo.h"
 
-// TESTS JUEGO
-TEST(GameTest, primero) {
-    EXPECT_TRUE(1 == 1);
+// TESTS BARRERA
+TEST(BarreraTest, primero) {
+    EXPECT_TRUE(1 != 2);
 }

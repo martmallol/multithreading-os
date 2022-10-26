@@ -2,8 +2,8 @@
 CXX := g++
 CXXFLAGS := -Wall -Wextra -pedantic -std=c++2a
 GTESTDIR := tests/gtest-1.8.1/
-OBJS := gameMaster.o equipo.o config.o
-TSTOBJS := tests/testGame.o tests/testBelcebu.o tests/testEquipo.o
+OBJS := gameMaster.o equipo.o config.o barrera.o
+TSTOBJS := tests/testGame.o tests/testBelcebu.o tests/testEquipo.o tests/testBarrera.o
 
 # Phonies
 .PHONY: all clean tester
@@ -29,6 +29,9 @@ equipo.o: equipo.cpp equipo.h
 gameMaster.o: gameMaster.cpp gameMaster.h 
 	$(CXX) $(CXXFLAGS) -c $< -o $@ 
 
+barrera.o: barrera.cpp barrera.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 # Testing
 tester: tests/testmain.cpp $(TSTOBJS) $(OBJS) # Executable
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(GTESTDIR)gtest-all.cc $(GTESTDIR)gtest.h -lpthread 
@@ -40,4 +43,7 @@ tests/testBelcebu.o: tests/testBelcebu.cpp gameMaster.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@ 
 
 tests/testEquipo.o: tests/testEquipo.cpp equipo.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@ 
+
+tests/testBarrera.o: tests/testBarrera.cpp equipo.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@ 

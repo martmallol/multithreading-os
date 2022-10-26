@@ -6,7 +6,7 @@
 #include <mutex>
 #include "../gameMaster.h"
 
-// TESTS GLOBALES
+// TESTS BELCEBU
 TEST(BelcebuTest, primero) {
     Config config = *(new Config());
     gameMaster belcebu = gameMaster(config);

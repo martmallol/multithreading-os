@@ -85,8 +85,8 @@ gameMaster::gameMaster(Config config) {
 	}
 	
     // Insertar código que crea necesario de inicialización
-	sem_init(&turno_rojo,0,1);
-	sem_init(&turno_azul,0,0); 
+	sem_init(&turno_rojo,0,0), sem_init(&turno_azul,0,0); 
+	sem_init(&termina_ronda_rojo,0,0), sem_init(&termina_ronda_azul,0,0);
 }
 
 void gameMaster::setearEstrategia(estrategia strategy, color equipo) {
@@ -124,6 +124,9 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 	// Que no se puedan mover 2 jugadores a la vez
     // setear la variable ganador
     // Devolver acorde a la descripción
+	
+	// TODO: EMPLEAR UNA MATRIZ DE MUTEXES POR CADA POSICION DEL TABLERO ASI NO LOCKEAMOS A TODOS MIENTRAS ALGUIEN SE MUEVE 
+	
 	lock_guard<mutex> lock(mtx); //hace un mtx.lock()
 	//zona crítica
 	if(quantum > 0 || quantum == -1) {
@@ -139,7 +142,7 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 		sePuedeMoverAhi = es_posicion_valida(posProxima) && noHayNadie;
 		
 		if(sePuedeMoverAhi) {
-			// sleep(1);
+			//sleep(1);
 			mover_jugador_tablero(posAnterior, posProxima, this->turno);
 			(this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
 							pos_jugadores_azules[nro_jugador] = posProxima;
@@ -152,7 +155,6 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 			} else {
 				cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA" << endl;
 			}
-			
 		}
 
 		// Chequear ganador
@@ -172,7 +174,6 @@ void gameMaster::termino_ronda(color equipo) {
 	cout << "termino_ronda: LISTO PARA TERMINAR LA RONDA" << endl;
 	// FIXME: Hacer chequeo de que es el color correcto que está llamando
 	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
-	// (equipo == ROJO) ? sem_wait(&turno_rojo) : sem_wait(&turno_azul);
 	if(equipo == turno && quantum <= 0) {	
 		string printEquipo = (equipo == ROJO) ? "rojo" : "azul";
 		//busy waiting
@@ -185,7 +186,40 @@ void gameMaster::termino_ronda(color equipo) {
 		stratActual = strats[turno];
 		nro_ronda++;
 	}
-	 (equipo == ROJO) ? sem_post(&turno_azul), semAzul++ : sem_post(&turno_rojo), semRojo++;
+	
+	// HACE FALTA MUTEX ACA??
+	// Si es la primera ronda despierto a los del azul que estan todos dormidos
+	if (nro_ronda == 1) {
+		for (int i = 0; i < jugadores_por_equipos; i++) {
+			(sem_post(&turno_azul), semAzul++);
+		}
+		dormidos[equipo]++;
+		sem_wait(&termina_ronda_rojo);
+	}
+	// Me voy a dormir y despierto a quien termino ronda del equipo contrario
+	else if(equipo == ROJO) {
+		sem_post(&termina_ronda_azul);
+		dormidos[equipo]++;
+		sem_wait(&termina_ronda_rojo);
+	} else {
+		sem_post(&termina_ronda_rojo);
+		dormidos[equipo]++;
+		sem_wait(&termina_ronda_azul);
+	}
+	
+	// Me despierto y levanto a los de mi equipo
+	printf("termino_ronda: ME DESPERTE! \n");
+	dormidos[equipo]--;
+
+	// Si termino el juego, nos despertamos todos los jugadores de ambos equipos
+	if(this->termino_juego()) {
+		(equipo == ROJO) ? sem_post(&termina_ronda_azul) : sem_post(&termina_ronda_rojo);
+	}
+
+	printf("termino_ronda: Voy a despertar a mis compas! \n");
+	for (int i = 0; i < jugadores_por_equipos-1; i++) {
+		(equipo == ROJO) ? (sem_post(&turno_rojo), semRojo++) : (sem_post(&turno_azul), semAzul++);
+	}
 }
 
 bool gameMaster::termino_juego() {

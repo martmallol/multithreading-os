@@ -41,8 +41,9 @@ public:
     void termino_ronda(color equipo); // Marca que un jugador terminó la ronda
     int mover_jugador(direccion dir, int nro_jugador);
     color ganador = INDEFINIDO;
-    atomic_int semRojo = 1;
-    atomic_int semAzul = 0;
+    atomic_int semRojo = 0; // Variable para DEBUGGING
+    atomic_int semAzul = 0; // Variable para DEBUGGING
+    atomic_int dormidos[2] = {0,0}; // Cuantos estan dormidos por equipo
 
     // Agregamos mas atributos
     mutex mtx;
@@ -51,7 +52,7 @@ public:
 	int getTamx();
 	int getTamy();
     static int distancia(coordenadas pair1, coordenadas pair2);
-    sem_t turno_rojo, turno_azul; // FIXME: Al principio necesito entrar como azul, luego puedo hacerlo por el método termino_ronda....
+    sem_t turno_rojo, turno_azul, termina_ronda_rojo, termina_ronda_azul; // FIXME: Al principio necesito entrar como azul, luego puedo hacerlo por el método termino_ronda....
     color en_posicion(coordenadas coord);
     bool es_posicion_valida(coordenadas pos);
     bool es_color_libre(color color_tablero);

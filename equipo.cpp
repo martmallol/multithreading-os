@@ -26,8 +26,6 @@ void Equipo::jugador(int nro_jugador) {
 		switch(this->strat) {
 			//SECUENCIAL,RR,SHORTEST,USTEDES
 			case(SECUENCIAL):
-				 // Espero a que se duerma el otro equipo completo
-				// TENGO QUE CHEQUEAR QUE TODOS LOS DEL OTRO EQUIPO ESTEN DORMIDOS
 				if(!this->yaJugo[nro_jugador] && belcebu->getTurno() == equipo) {
 					// cout << "Mi posicion es: " << posiciones[nro_jugador].first << ", " << posiciones[nro_jugador].second << endl;
 					// cout << "La bandera del otro equipo esta en " << belcebu->pos_contraria(equipo).first << ", " << belcebu->pos_contraria(equipo).first << endl;
@@ -93,13 +91,12 @@ void Equipo::jugador(int nro_jugador) {
 
 	}
 
-	
 	// HAY QUE MATAR A LOS THREADS (oye, no lo diga tan brusco)
 	if(this->belcebu->ganador == equipo) cout << "EQUIPO " << equipo << ": ASI, ASI, ASI GANA EL MADRID!" << endl;
 	else cout << "EQUIPO " << equipo << ": ES INCREIBLE PERO NO SE NOS DA";
 	
 	// Esta bien que lo pongamos aca? Parece que no
-	terminar();
+	//terminar();
 }
 
 Equipo::Equipo(gameMaster *belcebu, color equipo, 

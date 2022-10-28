@@ -11,7 +11,7 @@ direccion Equipo::apuntar_a(coordenadas pos1, coordenadas pos2) {
 }
 
 void Equipo::jugador(int nro_jugador) { 
-	// nadie los despierta si es la primera ronda!!! Como los despertamos? En belcebu->termino_ronda.
+	// Como los despertamos? En belcebu->termino_ronda.
 	if (equipo == AZUL) sem_wait(&belcebu->turno_azul), belcebu->semAzul--;
 	cout << "jugador: JUGAR MAL FUE PARTE DE LA ESTRATEGIA"<<endl;
 	
@@ -29,8 +29,8 @@ void Equipo::jugador(int nro_jugador) {
 				if(!this->yaJugo[nro_jugador] && belcebu->getTurno() == equipo) {
 					// cout << "Mi posicion es: " << posiciones[nro_jugador].first << ", " << posiciones[nro_jugador].second << endl;
 					// cout << "La bandera del otro equipo esta en " << belcebu->pos_contraria(equipo).first << ", " << belcebu->pos_contraria(equipo).first << endl;
-					direccion moverA = apuntar_a(posiciones[nro_jugador], belcebu->pos_contraria(equipo));
-					if(belcebu->mover_jugador(moverA, nro_jugador) < 0){
+					direccion moverA = apuntar_a(posiciones[nro_jugador], this->pos_bandera_contraria);
+					if(belcebu->mover_jugador(moverA, nro_jugador) < 0) {
 						cout << "case_secuencial: ERROR EN mover_jugador " << endl;
 					} else{
 						// cout << "case_secuencial: SOY EL JUGADOR " << nro_jugador << " DEL EQUIPO " << equipo << " Y ME MOVÍ HACIA " << moverA << endl;
@@ -56,15 +56,13 @@ void Equipo::jugador(int nro_jugador) {
 		}	
 
 		// OJO. Esto lo termina un jugador... ELEGIMOS QUE LO HAGA EL ULTIMO EN IRSE A DORMIR
-		
-		// BARRERA (todos se tienen que haber movido para que alguien llame a terminoRonda)
-		barrera2->wait();
-		printf("Salimos de la barrera b2\n"); // deadlock???
-
-		// Si soy el ultimo en irme a dormir
-		if(belcebu->dormidos[equipo] == cant_jugadores-1) { //  ??? || belcebu->dormidos[equipo] == quantum-1 ???
-			cout << "Soy el jugador nro " << nro_jugador << " y voy a terminar la ronda" << endl;
-			if(quantum_restante == 0 || (quantum_restante == -1)) {
+		if(quantum_restante == 0 || (quantum_restante == -1)) {
+			mtxEquipo.lock();
+			// Si soy el ultimo en irme a dormir
+			if(belcebu->dormidos[equipo] == cant_jugadores-1) { //  ??? || belcebu->dormidos[equipo] == quantum-1 ???
+				mtxEquipo.unlock();
+				cout << "Soy el jugador nro " << nro_jugador << " y voy a terminar la ronda" << endl;
+				
 				if(cant_jugadores_que_ya_jugaron != 0) {
 					if(quantum_restante == -1) {
 						inicializarVector();
@@ -77,26 +75,22 @@ void Equipo::jugador(int nro_jugador) {
 				/* cout << "SEMAFORO ROJO:" << belcebu->semRojo << endl; // deberia dar -3 o 0
 				cout << "SEMAFORO AZUL:" << belcebu->semAzul << endl; // deberia dar -3 o 0
 				cout << endl; */
-			} 
-		} else {
-			// Nos dormimos
-			belcebu->dormidos[equipo]++;
-			if (equipo == ROJO) {
-				cout << "Me duermo rojo" << endl, sem_wait(&belcebu->turno_rojo), belcebu->semRojo--;
 			} else {
-				cout << "Me duermo azul" << endl, sem_wait(&belcebu->turno_azul), belcebu->semAzul--;
+				// Nos dormimos
+				belcebu->dormidos[equipo]++;
+				mtxEquipo.unlock();
+				if (equipo == ROJO) {
+					cout << "Me duermo rojo" << endl, sem_wait(&belcebu->turno_rojo), belcebu->semRojo--;
+				} else {
+					cout << "Me duermo azul" << endl, sem_wait(&belcebu->turno_azul), belcebu->semAzul--;
+				}
+				belcebu->dormidos[equipo]--;
 			}
-			belcebu->dormidos[equipo]--;
-		}
-
+		} 
 	}
 
-	// HAY QUE MATAR A LOS THREADS (oye, no lo diga tan brusco)
 	if(this->belcebu->ganador == equipo) cout << "EQUIPO " << equipo << ": ASI, ASI, ASI GANA EL MADRID!" << endl;
-	else cout << "EQUIPO " << equipo << ": ES INCREIBLE PERO NO SE NOS DA";
-	
-	// Esta bien que lo pongamos aca? Parece que no
-	//terminar();
+	else cout << "EQUIPO " << equipo << ": ES INCREIBLE PERO NO SE NOS DA" << endl;
 }
 
 Equipo::Equipo(gameMaster *belcebu, color equipo, 
@@ -115,11 +109,9 @@ Equipo::Equipo(gameMaster *belcebu, color equipo,
 	this->posiciones_originales = posiciones;
 	belcebu->setearQuantum(quantum,equipo);
 	this->yaJugo.resize(cant_jugadores,false);
-	//inicializarVector();
 
 	// POR QUE NO COMPILA SI NO SON PUNTEROS????
 	this->barrera1 = new Barrera(cant_jugadores);
-	this->barrera2 = new Barrera(cant_jugadores);
 
 	cout << "SE HA INICIALIZADO EQUIPO " << equipo << " CON EXITO " << endl;
 }
@@ -127,25 +119,34 @@ Equipo::Equipo(gameMaster *belcebu, color equipo,
 void Equipo::comenzar() {
 	if(equipo){cout << "SOY DEL EQUIPO ROJO"<< endl;} 
 	else{cout << "SOY DEL EQUIPO AZUL"<<endl;}
-	//Para ir probando estrategias antes de tener buscar_bandera_contraria hecha, esto funciona aunque ESTA MAL!
-	cout << belcebu->pos_contraria(ROJO).first << ", " << belcebu->pos_contraria(ROJO).second << endl;
-	cout << belcebu->pos_contraria(AZUL).first << ", " << belcebu->pos_contraria(AZUL).second << endl;
-
-	// CHAU BUSY WAITING
+	
+	this->buscar_bandera_contraria_secuencial();
+	cout << "Bandera contraria: "<< this->pos_bandera_contraria.first << ", " << this->pos_bandera_contraria.second << endl;
 
 	// Creamos los jugadores
 	for(int i=0; i < cant_jugadores; i++) { 
 		jugadores.emplace_back(thread(&Equipo::jugador, this, i)); 
 	}
-
-	// Terminamos
-	// terminar();
 }
 
 void Equipo::terminar() {
 	for(auto &t:jugadores){
 		t.join();
 	}	
+}
+
+coordenadas Equipo::buscar_bandera_contraria_secuencial() {
+	bool encontrada;
+	for (int i = 0; i < this->belcebu->getTamx() && !encontrada; i++) {
+		for (int j = 0; j < this->belcebu->getTamy() && !encontrada; j++) {
+			color banderaContraria = (color)(this->equipo + 5);
+			encontrada = this->belcebu->en_posicion({i,j}) == banderaContraria;
+			if(encontrada) {
+				this->pos_bandera_contraria = {i,j};
+			}
+		}
+	}
+	return this->pos_bandera_contraria;
 }
 
 coordenadas Equipo::buscar_bandera_contraria() {

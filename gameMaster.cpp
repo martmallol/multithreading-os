@@ -49,7 +49,6 @@ gameMaster::gameMaster(Config config) {
 		assert(es_posicion_valida(coord)); // Posiciones validas rojas
 	}		
 
-	
 	this->jugadores_por_equipos = config.cantidad_jugadores;
 	this->pos_bandera_roja = config.bandera_roja;
 	this->pos_bandera_azul = config.bandera_azul;
@@ -62,7 +61,6 @@ gameMaster::gameMaster(Config config) {
         fill(tablero[i].begin(), tablero[i].end(), VACIO);
     }
     
-
     for(auto &coord : config.pos_rojo){
         assert(es_color_libre(tablero[coord.first][coord.second])); //Compruebo que no haya otro jugador en esa posicion
         tablero[coord.first][coord.second] = ROJO; // guardo la posicion
@@ -104,20 +102,11 @@ color gameMaster::getTurno() {
 	return turno;
 }
 
-coordenadas gameMaster::pos_contraria(color equipo){
-	if(equipo == ROJO){
-		return pos_bandera_azul;
-	} else{
-		return pos_bandera_roja;
-	}
-}
-
 void gameMaster::mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo){
     assert(es_color_libre(tablero[pos_nueva.first][pos_nueva.second]));
     tablero[pos_anterior.first][pos_anterior.second] = VACIO; 
     tablero[pos_nueva.first][pos_nueva.second] = colorEquipo;
 }
-
 
 int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 	// Chequear que la movida sea valida
@@ -130,7 +119,6 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 	lock_guard<mutex> lock(mtx); //hace un mtx.lock()
 	//zona crítica
 	if(quantum > 0 || quantum == -1) {
-		moviendose++;
 		//color color = this->turno;
 		coordenadas posAnterior; bool noHayNadie; bool sePuedeMoverAhi; bool gano; // indefinidas por ahora
 		
@@ -161,7 +149,6 @@ int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
 		gano = (this->turno == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
 		if (gano) ganador = this->turno;
 		if (quantum > 0) quantum--;
-		moviendose--;
 		return (gano ? 0 : nro_ronda); // "devuelve el nro de ronda o 0 si el equipo gano"
 	} else {
 		return nro_ronda;
@@ -176,10 +163,6 @@ void gameMaster::termino_ronda(color equipo) {
 	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
 	if(equipo == turno && quantum <= 0) {	
 		string printEquipo = (equipo == ROJO) ? "rojo" : "azul";
-		//busy waiting
-		while(moviendose > 0) {
-			cout << "termino_ronda: Jugador del equipo " << printEquipo << ": Esperando que terminen mis compas" << endl;
-		};
 		cout << "termino_ronda: Jugador del equipo " << printEquipo << ": Termino la ronda numero: " << nro_ronda << endl << endl;;
 		this->turno = (equipo == ROJO) ? AZUL : ROJO;
 		quantum = quantumsOriginales[turno];

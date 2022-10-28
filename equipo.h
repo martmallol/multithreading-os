@@ -28,7 +28,6 @@ class Equipo {
 		vector<coordenadas> posiciones_originales;
 		vector<bool> yaJugo;
 		Barrera* barrera1;
-		Barrera* barrera2;
 
 		// Métodos privados 
 		direccion apuntar_a(coordenadas pos2, coordenadas pos1);
@@ -38,6 +37,7 @@ class Equipo {
 		// Agregamos métodos privados
 		//bool jugaronTodos();
 		void inicializarVector();
+		coordenadas buscar_bandera_contraria_secuencial();
 
 	public:
 		Equipo(gameMaster *belcebu, color equipo, 

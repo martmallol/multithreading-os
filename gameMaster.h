@@ -26,7 +26,6 @@ private:
     int quantum; // si es -1, la estrategia no cuenta con quantum. Podria ser un puntero al quantum del equipo
     int quantumsOriginales[2];
     estrategia strats[2];
-    int moviendose = 0; // el jugador esta en proceso de moverse
 
     // Métodos privados
     color obtener_coordenadas(coordenadas coord);
@@ -47,12 +46,13 @@ public:
 
     // Agregamos mas atributos
     mutex mtx;
+
     // Métodos públicos
     bool termino_juego();
 	int getTamx();
 	int getTamy();
     static int distancia(coordenadas pair1, coordenadas pair2);
-    sem_t turno_rojo, turno_azul, termina_ronda_rojo, termina_ronda_azul; // FIXME: Al principio necesito entrar como azul, luego puedo hacerlo por el método termino_ronda....
+    sem_t turno_rojo, turno_azul, termina_ronda_rojo, termina_ronda_azul; // FIXME: Al principio necesito entrar como azul, luego puedo hacerlo por el método termino_ronda...
     color en_posicion(coordenadas coord);
     bool es_posicion_valida(coordenadas pos);
     bool es_color_libre(color color_tablero);
@@ -62,7 +62,6 @@ public:
     void setearEstrategia(estrategia strategy, color equipo);
     void setearQuantum(int q, color equipo);
     color getTurno();
-    coordenadas pos_contraria(color equipo);
 };
 
 #endif // GAMEMASTER_H

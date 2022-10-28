@@ -26,22 +26,19 @@ void Equipo::jugador(int nro_jugador) {
 		switch(this->strat) {
 			//SECUENCIAL,RR,SHORTEST,USTEDES
 			case(SECUENCIAL):
-				if(!this->yaJugo[nro_jugador] && belcebu->getTurno() == equipo) {
+				if(belcebu->getTurno() == equipo) {
 					// cout << "Mi posicion es: " << posiciones[nro_jugador].first << ", " << posiciones[nro_jugador].second << endl;
 					// cout << "La bandera del otro equipo esta en " << belcebu->pos_contraria(equipo).first << ", " << belcebu->pos_contraria(equipo).first << endl;
 					direccion moverA = apuntar_a(posiciones[nro_jugador], this->pos_bandera_contraria);
 					if(belcebu->mover_jugador(moverA, nro_jugador) < 0) {
 						cout << "case_secuencial: ERROR EN mover_jugador " << endl;
-					} else{
-						// cout << "case_secuencial: SOY EL JUGADOR " << nro_jugador << " DEL EQUIPO " << equipo << " Y ME MOVÍ HACIA " << moverA << endl;
-						yaJugo[nro_jugador] = true;
-						cant_jugadores_que_ya_jugaron++;				
-					}
+					} 
 				}
 				break;
 			
 			case(RR):
-				//
+				// "Deberán jugar en órden según su número de jugador nro_jugador."
+				
 				break;
 
 			case(SHORTEST):
@@ -59,22 +56,10 @@ void Equipo::jugador(int nro_jugador) {
 		if(quantum_restante == 0 || (quantum_restante == -1)) {
 			mtxEquipo.lock();
 			// Si soy el ultimo en irme a dormir
-			if(belcebu->dormidos[equipo] == cant_jugadores-1) { //  ??? || belcebu->dormidos[equipo] == quantum-1 ???
+			if(belcebu->dormidos[equipo] == cant_jugadores-1) {
 				mtxEquipo.unlock();
 				cout << "Soy el jugador nro " << nro_jugador << " y voy a terminar la ronda" << endl;
-				
-				if(cant_jugadores_que_ya_jugaron != 0) {
-					if(quantum_restante == -1) {
-						inicializarVector();
-						cant_jugadores_que_ya_jugaron = 0;
-					}
-					// Termino ronda y me voy a dormir. Cuando me despierto, levanto a todos
-					belcebu->termino_ronda(equipo);
-				}
-				// DEBUG:
-				/* cout << "SEMAFORO ROJO:" << belcebu->semRojo << endl; // deberia dar -3 o 0
-				cout << "SEMAFORO AZUL:" << belcebu->semAzul << endl; // deberia dar -3 o 0
-				cout << endl; */
+				belcebu->termino_ronda(equipo);
 			} else {
 				// Nos dormimos
 				belcebu->dormidos[equipo]++;

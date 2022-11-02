@@ -25,9 +25,16 @@ class Equipo {
 
 		//Agregamos atributos
 		mutex mtxEquipo;
+		mutex mtxRR;
 		vector<coordenadas> posiciones_originales;
 		vector<bool> yaJugo;
+		vector<bool> vectorIni;
 		Barrera* barrera1;
+		bool reiniciarRonda;
+		bool primJugadorValido;
+		bool ultJugadorValido;
+		bool xJugadorValido;
+		bool niElPrimeroNiElUltimo;
 
 		// Métodos privados 
 		direccion apuntar_a(coordenadas pos2, coordenadas pos1);

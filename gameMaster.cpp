@@ -102,6 +102,10 @@ color gameMaster::getTurno() {
 	return turno;
 }
 
+int gameMaster::getQuantumActual() {
+	return quantum;
+}
+
 void gameMaster::mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo){
     assert(es_color_libre(tablero[pos_nueva.first][pos_nueva.second]));
     tablero[pos_anterior.first][pos_anterior.second] = VACIO; 

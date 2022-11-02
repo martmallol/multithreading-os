@@ -20,6 +20,8 @@ void Equipo::jugador(int nro_jugador) {
 		cout << "Dormidos equipo "<< equipo << ": " << belcebu->dormidos[equipo] << endl;
 		
 		// BARRERA
+		// deadlock, el ultimo que termino de jugar se va a dormir primero,
+		// y el resto se queda esperando aca por siempre 
 		barrera1->wait();
 		printf("Salimos de la barrera b1\n");
 
@@ -28,7 +30,7 @@ void Equipo::jugador(int nro_jugador) {
 			case(SECUENCIAL):
 				if(belcebu->getTurno() == equipo) {
 					// cout << "Mi posicion es: " << posiciones[nro_jugador].first << ", " << posiciones[nro_jugador].second << endl;
-					// cout << "La bandera del otro equipo esta en " << belcebu->pos_contraria(equipo).first << ", " << belcebu->pos_contraria(equipo).first << endl;
+					// cout << "La bandera del otro equipo esta en " << this->pos_bandera_contraria.first << ", " << this->pos_bandera_contraria.second << endl;
 					direccion moverA = apuntar_a(posiciones[nro_jugador], this->pos_bandera_contraria);
 					if(belcebu->mover_jugador(moverA, nro_jugador) < 0) {
 						cout << "case_secuencial: ERROR EN mover_jugador " << endl;
@@ -37,8 +39,31 @@ void Equipo::jugador(int nro_jugador) {
 				break;
 			
 			case(RR):
+				printf("comienzo RR\n");
 				// "Deberán jugar en órden según su número de jugador nro_jugador."
-				
+				mtxRR.lock();
+				reiniciarRonda = (cant_jugadores_que_ya_jugaron == cant_jugadores);
+				if(reiniciarRonda) inicializarVector(), cant_jugadores_que_ya_jugaron = 0;
+				primJugadorValido = (nro_jugador == 0) ? (yaJugo == vectorIni) : false;
+				ultJugadorValido = (nro_jugador == cant_jugadores - 1) ? ((cant_jugadores_que_ya_jugaron == cant_jugadores - 1) && !yaJugo[nro_jugador]) : false;
+				niElPrimeroNiElUltimo = (cant_jugadores_que_ya_jugaron == nro_jugador) && (nro_jugador != 0) && (nro_jugador != cant_jugadores-1);
+				xJugadorValido = (niElPrimeroNiElUltimo) ? (yaJugo[nro_jugador-1] && !yaJugo[nro_jugador] && !yaJugo[nro_jugador+1]) : false;
+				if(primJugadorValido || ultJugadorValido || xJugadorValido) {
+					mtxRR.unlock();
+					printf("voy a moverme\n");
+					direccion moverA = apuntar_a(posiciones[nro_jugador], pos_bandera_contraria);
+					if(belcebu->mover_jugador(moverA, nro_jugador) < 0) {
+						cout << "case_RR: ERROR EN mover_jugador " << endl;
+					}
+					// Informativo
+					quantum_restante = belcebu->getQuantumActual();
+					cout << "case_RR: Soy el jugador " << nro_jugador << " y el quantum actual es:  " << quantum_restante << endl;
+					yaJugo[nro_jugador] = true;
+					cant_jugadores_que_ya_jugaron++;
+				} else {
+					mtxRR.unlock();
+				}
+				printf("Me voy\n");
 				break;
 
 			case(SHORTEST):
@@ -52,14 +77,19 @@ void Equipo::jugador(int nro_jugador) {
 				break;
 		}	
 
+		barrera1->wait();
+
 		// OJO. Esto lo termina un jugador... ELEGIMOS QUE LO HAGA EL ULTIMO EN IRSE A DORMIR
-		if(quantum_restante == 0 || (quantum_restante == -1)) {
+		if((quantum_restante == 0) || (quantum_restante == -1)) {
+			printf("Jugador %d: Entro a la dormicion\n", nro_jugador);
 			mtxEquipo.lock();
 			// Si soy el ultimo en irme a dormir
 			if(belcebu->dormidos[equipo] == cant_jugadores-1) {
 				mtxEquipo.unlock();
 				cout << "Soy el jugador nro " << nro_jugador << " y voy a terminar la ronda" << endl;
 				belcebu->termino_ronda(equipo);
+				quantum_restante = quantum; // Reestablezco quantum en caso de RR o SHORTEST
+				
 			} else {
 				// Nos dormimos
 				belcebu->dormidos[equipo]++;
@@ -71,7 +101,7 @@ void Equipo::jugador(int nro_jugador) {
 				}
 				belcebu->dormidos[equipo]--;
 			}
-		} 
+		}
 	}
 
 	if(this->belcebu->ganador == equipo) cout << "EQUIPO " << equipo << ": ASI, ASI, ASI GANA EL MADRID!" << endl;
@@ -94,7 +124,7 @@ Equipo::Equipo(gameMaster *belcebu, color equipo,
 	this->posiciones_originales = posiciones;
 	belcebu->setearQuantum(quantum,equipo);
 	this->yaJugo.resize(cant_jugadores,false);
-
+	this->vectorIni.resize(cant_jugadores,false);
 	// POR QUE NO COMPILA SI NO SON PUNTEROS????
 	this->barrera1 = new Barrera(cant_jugadores);
 

@@ -62,6 +62,7 @@ public:
     void setearEstrategia(estrategia strategy, color equipo);
     void setearQuantum(int q, color equipo);
     color getTurno();
+    int getQuantumActual();
 };
 
 #endif // GAMEMASTER_H

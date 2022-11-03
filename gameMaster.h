@@ -43,6 +43,7 @@ public:
     atomic_int semRojo = 0; // Variable para DEBUGGING
     atomic_int semAzul = 0; // Variable para DEBUGGING
     atomic_int dormidos[2] = {0,0}; // Cuantos estan dormidos por equipo
+    atomic_bool desperteUltimoRonda[2] = {false,false};
 
     // Agregamos mas atributos
     mutex mtx;

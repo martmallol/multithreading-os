@@ -80,7 +80,25 @@ void Equipo::jugador(int nro_jugador) {
 		barrera1->wait();
 
 		// OJO. Esto lo termina un jugador... ELEGIMOS QUE LO HAGA EL ULTIMO EN IRSE A DORMIR
-		if((quantum_restante == 0) || (quantum_restante == -1)) {
+		// Si termino el juego, despierto al perdedor
+		if(this->belcebu->termino_juego()) {
+			// Despierto a los primeros 'cant_jugadores-1' jugadores del otro equipo
+			(equipo == ROJO) ? sem_post(&belcebu->turno_azul), belcebu->dormidos[AZUL]-- : 
+			sem_post(&belcebu->turno_rojo), belcebu->dormidos[ROJO]--;
+
+			// Despierto al ultimo
+			if(equipo == ROJO && !belcebu->desperteUltimoRonda[AZUL]) {
+				sem_post(&belcebu->termina_ronda_azul);
+				belcebu->desperteUltimoRonda[AZUL] = true;
+			} else if(equipo == AZUL && !belcebu->desperteUltimoRonda[ROJO]) {
+				sem_post(&belcebu->termina_ronda_rojo);
+				belcebu->desperteUltimoRonda[ROJO] = true;
+			}
+			
+			
+		}
+		// Si termino mi turno, hago el cambio y me voy a dormir
+		else if((quantum_restante == 0) || (quantum_restante == -1)) {
 			printf("Jugador %d: Entro a la dormicion\n", nro_jugador);
 			mtxEquipo.lock();
 			// Si soy el ultimo en irme a dormir
@@ -89,8 +107,8 @@ void Equipo::jugador(int nro_jugador) {
 				cout << "Soy el jugador nro " << nro_jugador << " y voy a terminar la ronda" << endl;
 				belcebu->termino_ronda(equipo);
 				quantum_restante = quantum; // Reestablezco quantum en caso de RR o SHORTEST
-				
-			} else {
+			} 
+			else {
 				// Nos dormimos
 				belcebu->dormidos[equipo]++;
 				mtxEquipo.unlock();

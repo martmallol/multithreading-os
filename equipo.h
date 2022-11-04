@@ -24,17 +24,13 @@ class Equipo {
 		coordenadas pos_bandera_contraria;
 
 		//Agregamos atributos
-		mutex mtxEquipo;
-		mutex mtxRR;
+		mutex mtxEquipo, mtxRR, mtxSDF;		
 		vector<coordenadas> posiciones_originales;
-		vector<bool> yaJugo;
-		vector<bool> vectorIni;
+		vector<bool> yaJugo, vectorIni;
 		Barrera* barrera1;
-		bool reiniciarRonda;
-		bool primJugadorValido;
-		bool ultJugadorValido;
-		bool xJugadorValido;
+		bool reiniciarRonda, primJugadorValido, ultJugadorValido, xJugadorValido; 
 		bool niElPrimeroNiElUltimo;
+		int jugador_mas_cerca;
 
 		// Métodos privados 
 		direccion apuntar_a(coordenadas pos2, coordenadas pos1);
@@ -42,16 +38,18 @@ class Equipo {
 		coordenadas buscar_bandera_contraria();
 
 		// Agregamos métodos privados
-		//bool jugaronTodos();
 		void inicializarVector();
 		coordenadas buscar_bandera_contraria_secuencial();
+		int shortestDistancePlayer();
 
 	public:
 		Equipo(gameMaster *belcebu, color equipo, 
 				estrategia strat, int cant_jugadores, int quantum, vector<coordenadas> posiciones);
 		void comenzar();
 		void terminar();
-		// crear jugadores
-
+		
+		// Agregamos métodos publicos
+		void meDuermo();
+		
 };
 #endif // EQUIPO_H

@@ -67,7 +67,28 @@ void Equipo::jugador(int nro_jugador) {
 				break;
 
 			case(SHORTEST):
-				//
+				// Calculamos jugador a menor distancia de bandera contraria. Los demas ¿se duermen?, él se mueve.
+				// Mutexeo esto para que lo calcule solo el primer thread que entra en cada ronda por equipo
+				mtxSDF.lock();
+				if (jugador_mas_cerca == -1) {
+					cout << "Soy el jugador " << nro_jugador << " y buscaré al mas cercano a la bandera" << endl;
+					jugador_mas_cerca = shortestDistancePlayer();
+
+					cout << "El jugador mas cercano a la bandera contraria es " << jugador_mas_cerca << endl;
+					cout << "PRUEBALO o SERÁS CASTIGADO!" << endl;
+					for (int i = 0; i < cant_jugadores; i++) {
+						int distancia_i = belcebu->distancia(posiciones[i], this->pos_bandera_contraria);
+						cout << "Distancia a la bandera del jugador " << i << ": " << distancia_i << endl;
+					}
+				}
+				mtxSDF.unlock();
+				if (nro_jugador == jugador_mas_cerca) {
+					cout << "Soy el jugador " << jugador_mas_cerca << ", el mas cerca a la bandera!" << endl;
+					direccion moverA = apuntar_a(posiciones[nro_jugador], this->pos_bandera_contraria);
+					int mov_jugador = belcebu->mover_jugador(moverA, nro_jugador);
+				} else {
+					cout << "Soy el jugador " << nro_jugador << ", estoy mas lejos, me voy" << endl;
+				}
 				break;
 
 			case(USTEDES):
@@ -94,36 +115,49 @@ void Equipo::jugador(int nro_jugador) {
 				sem_post(&belcebu->termina_ronda_rojo);
 				belcebu->desperteUltimoRonda[ROJO] = true;
 			}
-			
-			
 		}
 		// Si termino mi turno, hago el cambio y me voy a dormir
 		else if((quantum_restante == 0) || (quantum_restante == -1)) {
 			printf("Jugador %d: Entro a la dormicion\n", nro_jugador);
 			mtxEquipo.lock();
-			// Si soy el ultimo en irme a dormir
+			// Si soy el ultimo en irme a dormir, termino ronda
 			if(belcebu->dormidos[equipo] == cant_jugadores-1) {
 				mtxEquipo.unlock();
 				cout << "Soy el jugador nro " << nro_jugador << " y voy a terminar la ronda" << endl;
 				belcebu->termino_ronda(equipo);
-				quantum_restante = quantum; // Reestablezco quantum en caso de RR o SHORTEST
+				quantum_restante = quantum; // Reestablezco quantum en caso de RR o USTEDES
+				jugador_mas_cerca = -1; // Reestablezco jugador_mas_cerca para que lo recalcule en la prox ronda
 			} 
+			// Para RR. Quienes sabemos que nunca mas van a volver a jugar, se duermen apneas se levantan
+			else if(quantum_restante > nro_jugador) {
+				mtxEquipo.unlock();
+				while(quantum_restante > nro_jugador) {
+					// Nos dormimos
+					belcebu->dormidos[equipo]++;
+					meDuermo();
+				}
+			}
+			// Caso para todas las estrategias (los que no son quien termina ronda)
 			else {
 				// Nos dormimos
 				belcebu->dormidos[equipo]++;
 				mtxEquipo.unlock();
-				if (equipo == ROJO) {
-					cout << "Me duermo rojo" << endl, sem_wait(&belcebu->turno_rojo), belcebu->semRojo--;
-				} else {
-					cout << "Me duermo azul" << endl, sem_wait(&belcebu->turno_azul), belcebu->semAzul--;
-				}
-				belcebu->dormidos[equipo]--;
+				meDuermo();
 			}
 		}
 	}
 
 	if(this->belcebu->ganador == equipo) cout << "EQUIPO " << equipo << ": ASI, ASI, ASI GANA EL MADRID!" << endl;
 	else cout << "EQUIPO " << equipo << ": ES INCREIBLE PERO NO SE NOS DA" << endl;
+}
+
+void Equipo::meDuermo() {
+	if (equipo == ROJO) {
+		cout << "Me duermo rojo" << endl, sem_wait(&belcebu->turno_rojo), belcebu->semRojo--;
+	} else {
+		cout << "Me duermo azul" << endl, sem_wait(&belcebu->turno_azul), belcebu->semAzul--;
+	}
+	belcebu->dormidos[equipo]--;
 }
 
 Equipo::Equipo(gameMaster *belcebu, color equipo, 
@@ -133,18 +167,21 @@ Equipo::Equipo(gameMaster *belcebu, color equipo,
 	this->contrario = (equipo == ROJO)? AZUL: ROJO;
 	this->bandera_contraria = (equipo==ROJO)? BANDERA_AZUL: BANDERA_ROJA;
 	this->strat = strat;
-	this->quantum = quantum;
-	this->quantum_restante = quantum;
+	// Aclaracion: Decidimos que si la estrategia es secuencial, el quantum tiene que ser -1.
+	// Es decir, si quantum = -1, la estrategia NO posee quantum
+	this->quantum = (strat != SECUENCIAL && strat != SHORTEST) ? quantum : -1; 
+	this->quantum_restante = this->quantum;
 	this->cant_jugadores = cant_jugadores;
 	this->posiciones = posiciones;
 
 	// Inicializaciones propias
 	this->posiciones_originales = posiciones;
-	belcebu->setearQuantum(quantum,equipo);
+	belcebu->setearQuantum(this->quantum,equipo);
 	this->yaJugo.resize(cant_jugadores,false);
 	this->vectorIni.resize(cant_jugadores,false);
-	// POR QUE NO COMPILA SI NO SON PUNTEROS????
+	// POR QUE NO COMPILA SI NO ES UN PUNTERO????
 	this->barrera1 = new Barrera(cant_jugadores);
+	this->jugador_mas_cerca = -1;
 
 	cout << "SE HA INICIALIZADO EQUIPO " << equipo << " CON EXITO " << endl;
 }
@@ -182,6 +219,7 @@ coordenadas Equipo::buscar_bandera_contraria_secuencial() {
 	return this->pos_bandera_contraria;
 }
 
+// TODO: Hacerla bien
 coordenadas Equipo::buscar_bandera_contraria() {
 	//Para ir obteniendo valores distintos con random
 	srand(time(NULL));
@@ -196,15 +234,23 @@ coordenadas Equipo::buscar_bandera_contraria() {
 	//TODO: Reestablecer posición original de los jugadores
 }
 
-/*bool Equipo::jugaronTodos(){
-	for(int i = 0; i < cant_jugadores; i++){
-		if(!yaJugo[i]){return false;}
-	}
-	return true;
-}*/
-
+// Funcion para RR
 void Equipo::inicializarVector(){
-	for(int i = 0; i < cant_jugadores; i++){
+	for(int i = 0; i < cant_jugadores; i++) {
 		yaJugo[i] = false;
 	}
+}
+
+// Funcion para SHORTEST DISTANCE PLAYER
+int Equipo::shortestDistancePlayer()
+{
+    int jugador = 0;
+    int distancia_min = belcebu->distancia(posiciones[jugador], this->pos_bandera_contraria);
+    for (int i = 1; i < cant_jugadores; i++) {
+        if (belcebu->distancia(posiciones[i], this->pos_bandera_contraria) < distancia_min) {
+            jugador = i;
+            distancia_min = belcebu->distancia(posiciones[i], this->pos_bandera_contraria);
+        }
+    }
+    return jugador;
 }

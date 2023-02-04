@@ -24,10 +24,23 @@ class Equipo {
 		coordenadas pos_bandera_contraria;
 
 		//Agregamos atributos
-		mutex mtxEquipo;
+		mutex mtxEquipo, mtxRR, mtxSDF, mtxUDS, mtxBandera;		
 		vector<coordenadas> posiciones_originales;
-		vector<bool> yaJugo;
+		vector<bool> yaJugo, vectorIni, seMovio;
 		Barrera* barrera1;
+		coordenadas posProxima;
+		bool empezoRonda;
+		bool noHayNadie, sePuedeMoverAhi;
+		bool noJugoNadie, reiniciarRonda, primJugadorValido, ultJugadorValido, xJugadorValido; 
+		bool niElPrimeroNiElUltimo;
+		int jugador_mas_cerca;
+	 	vector<pair<int, int>> jugadoresLejanos;
+ 		int cantidad;
+		
+		//Para punto 4
+		atomic_int filaNoRecorrida {0};
+		bool encontramosBandera = false;
+		double tiempoBusqueda = 0, tiempoInicio = -1;
 
 		// Métodos privados 
 		direccion apuntar_a(coordenadas pos2, coordenadas pos1);
@@ -35,16 +48,25 @@ class Equipo {
 		coordenadas buscar_bandera_contraria();
 
 		// Agregamos métodos privados
-		//bool jugaronTodos();
-		void inicializarVector();
+		void chequearMovida(direccion moverA, int nro_jugador);
+		void inicializarVector(), inicializarVector_movidas();
 		coordenadas buscar_bandera_contraria_secuencial();
+		int shortestDistancePlayer();
+		vector<pair<int, int>> largestDistancePlayer();
+ 		bool encontrarJugador(vector<pair<int, int>> jugadoresLejanos, int &cant, int nro_jugador);
+ 		bool in_vector(vector<pair<int, int>> jugadoresLejanos, int nro_jugador);
+
+		//Punto 4
+		void recorrerFila(int fila);
 
 	public:
 		Equipo(gameMaster *belcebu, color equipo, 
 				estrategia strat, int cant_jugadores, int quantum, vector<coordenadas> posiciones);
 		void comenzar();
 		void terminar();
-		// crear jugadores
-
+		
+		// Agregamos métodos publicos
+		void meDuermo();
+		
 };
 #endif // EQUIPO_H

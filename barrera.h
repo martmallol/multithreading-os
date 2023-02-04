@@ -7,7 +7,7 @@
 #include <vector>
 #include <thread>
 #include "definiciones.h"
-
+#include <iostream>
 
 using namespace std;
 

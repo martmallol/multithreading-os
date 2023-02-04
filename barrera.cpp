@@ -23,7 +23,7 @@ void Barrera::wait() {
     // Segunda fase
     this->mtx.lock();
     n--;
-    printf("Faltan %i para liberar la barrera \n", (int)n);
+    cout << "Faltan " << n << " para liberar la barrera" << endl;
     if (n == 0) {
         // Hago n signals a b2
         for(int i = 0; i < N; i++) {

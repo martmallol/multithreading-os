@@ -26,13 +26,12 @@ private:
     int quantum; // si es -1, la estrategia no cuenta con quantum. Podria ser un puntero al quantum del equipo
     int quantumsOriginales[2];
     estrategia strats[2];
+    int movio_alguien_rojo = 0, movio_alguien_azul = 0;
 
     // Métodos privados
     color obtener_coordenadas(coordenadas coord);
     void mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos_nueva, color colorEquipo);
-    
-    // Agregamos mas metodos
-    
+
  
 public:
     // Atributos públicos
@@ -40,12 +39,10 @@ public:
     void termino_ronda(color equipo); // Marca que un jugador terminó la ronda
     int mover_jugador(direccion dir, int nro_jugador);
     color ganador = INDEFINIDO;
-    atomic_int semRojo = 0; // Variable para DEBUGGING
-    atomic_int semAzul = 0; // Variable para DEBUGGING
-    atomic_int dormidos[2] = {0,0}; // Cuantos estan dormidos por equipo
 
     // Agregamos mas atributos
-    mutex mtx;
+    atomic_int dormidos[2] = {0,0}; // Cuantos estan dormidos por equipo
+    atomic_bool desperteUltimoRonda[2] = {false,false};
 
     // Métodos públicos
     bool termino_juego();
@@ -62,6 +59,7 @@ public:
     void setearEstrategia(estrategia strategy, color equipo);
     void setearQuantum(int q, color equipo);
     color getTurno();
+    int getQuantumActual();
 };
 
 #endif // GAMEMASTER_H

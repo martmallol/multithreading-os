@@ -1,0 +1,177 @@
+SE HA INICIALIZADO GAMEMASTER CON EXITO
+EL TURNO ACTUAL ES ROJO
+SE HA INICIALIZADO EQUIPO 1 CON EXITO 
+SE HA INICIALIZADO EQUIPO 0 CON EXITO 
+SOY DEL EQUIPO ROJO
+El tiempo tomado en encontrar la bandera 0 de forma secuencial fue 0.000565485
+Bandera contraria secuencial: 99, 99
+Empieza a correr el thread del jugador 0
+Soy el jugador 0 y le doy inicio al timer para buscar la bandera 0
+Empieza a correr el thread del jugador 1
+Empieza a correr el thread del jugador 2
+SOY DEL EQUIPO AZUL
+Empieza a correr el thread del jugador 3
+El tiempo tomado en encontrar la bandera 1 de forma secuencial fue 2.9315e-05
+Bandera contraria secuencial: 1, 1
+Jugador 0: El tiempo tomado en encontrar la bandera 0 con los threads fue Hallamos bandera
+0.000529508
+Bandera contraria: 99, 99
+Bandera contraria: 99, 99
+Bandera contraria: 99, 99
+Bandera contraria: 99, 99
+Faltan 3 para liberar la barrera
+Faltan 2 para liberar la barrera
+Faltan 1 para liberar la barrera
+Faltan 0 para liberar la barrera
+Salimos de la barrera b1
+Salimos de la barrera b1Soy jugador 1 y soy quien calcula el vector
+Salimos de la barrera b1
+
+Salimos de la barrera b1
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 1
+Soy jugador 1 y me tocan 1 pasos
+SOY EL JUGADOR 1 DEL EQUIPO 1 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+case_UDS: Soy el jugador 1 y el quantum actual es:  4
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 0
+Soy jugador 0 y me tocan 2 pasos
+SOY EL JUGADOR 0 DEL EQUIPO 1 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+SOY EL JUGADOR 0 DEL EQUIPO 1 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+case_UDS: Soy el jugador 0 y el quantum actual es:  4
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 3
+Soy el jugador 3, estoy mas cerca, me voy
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 2
+Soy jugador 2 y me tocan 1 pasos
+SOY EL JUGADOR 2 DEL EQUIPO 1 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+case_UDS: Soy el jugador 2 y el quantum actual es:  4
+Faltan 3 para liberar la barrera
+Faltan 2 para liberar la barrera
+Faltan 1 para liberar la barrera
+Faltan 0 para liberar la barrera
+Faltan 3 para liberar la barrera
+Faltan 2 para liberar la barrera
+Faltan 1 para liberar la barrera
+Faltan 0 para liberar la barrera
+Salimos de la barrera b1
+Jugador: 0, pasos: 2
+Salimos de la barrera b1Jugador: 1, pasos: 
+1
+Jugador: 2, pasos: 1
+Salimos de la barrera b1Entra jugador 0
+
+Salimos de la barrera b1
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 2
+Soy el jugador 0, estoy mas cerca, me voy
+Soy el jugador 2, estoy mas cerca, me voy
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 1
+Soy el jugador 1, estoy mas cerca, me voy
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 3
+Soy el jugador 3, estoy mas cerca, me voy
+Faltan 3 para liberar la barrera
+Faltan 2 para liberar la barrera
+Faltan 1 para liberar la barrera
+Faltan 0 para liberar la barrera
+Jugador 0: Entro a dormirme
+Jugador Me duermo rojo2Jugador : Entro a dormirme
+Me duermo rojo
+3: Entro a dormirme
+Me duermo rojo
+
+Jugador 1: Entro a dormirme
+Soy el jugador nro 1 y voy a terminar la ronda
+termino_ronda: Jugador del equipo rojo: Termino la ronda numero: 0
+
+Empieza a correr el thread del jugador 1
+Soy el jugador 1 y le doy inicio al timer para buscar la bandera 1
+Empieza a correr el thread del jugador Hallamos bandera
+Empieza a correr el thread del jugador 3
+Empieza a correr el thread del jugador 2
+0
+Jugador 1: El tiempo tomado en encontrar la bandera 1 con los threads fue 1.2413e-05
+Bandera contraria: 1, 1
+Bandera contraria: 1, 1
+Bandera contraria: 1, 1
+Bandera contraria: 1, 1
+Faltan 3 para liberar la barrera
+Faltan 2 para liberar la barrera
+Faltan 1 para liberar la barrera
+Faltan 0 para liberar la barrera
+Salimos de la barrera b1
+Salimos de la barrera b1
+Salimos de la barrera b1
+Salimos de la barrera b1
+Soy jugador 0 y soy quien calcula el vector
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 0
+Soy jugador 0 y me tocan 2 pasos
+SOY EL JUGADOR 0 DEL EQUIPO 0 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+SOY EL JUGADOR 0 DEL EQUIPO 0 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+case_UDS: Soy el jugador 0 y el quantum actual es:  4
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 1
+Soy jugador 1 y me tocan 1 pasos
+SOY EL JUGADOR 1 DEL EQUIPO 0 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+case_UDS: Soy el jugador 1 y el quantum actual es:  4
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 2
+Soy jugador 2 y me tocan 1 pasos
+SOY EL JUGADOR 2 DEL EQUIPO 0 Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA
+case_UDS: Soy el jugador 2 y el quantum actual es:  4
+Jugador: 0, pasos: 2
+Jugador: 1, pasos: 1
+Jugador: 2, pasos: 1
+Entra jugador 3
+Soy el jugador 3, estoy mas cerca, me voy
+Faltan 3 para liberar la barrera
+Faltan 2 para liberar la barrera
+Faltan 1 para liberar la barrera
+Faltan 0 para liberar la barrera
+Jugador 3: Entro a dormirme
+Jugador 1: Entro a dormirmeJugador 
+0: Entro a dormirme
+Jugador Me duermo azul
+Me duermo azulMe duermo azul
+2: Entro a dormirme
+Soy el jugador nro 
+2 y voy a terminar la ronda
+termino_ronda: Jugador del equipo azul: Termino la ronda numero: 1
+
+termino_ronda: ME DESPERTE!
+termino_ronda: Voy a despertar a mis compas!
+termino_ronda: ME DESPERTE!
+EQUIPO termino_ronda: Voy a despertar a mis compas!1
+: ES INCREIBLE PERO NO SE NOS DA
+EQUIPO 0: ES INCREIBLE PERO NO SE NOS DA
+EQUIPO 1: ES INCREIBLE PERO NO SE NOS DA
+EQUIPO 1: ES INCREIBLE PERO NO SE NOS DA
+EQUIPO 0: ES INCREIBLE PERO NO SE NOS DA
+EQUIPO 0: ES INCREIBLE PERO NO SE NOS DA
+EQUIPO 1: ES INCREIBLE PERO NO SE NOS DA
+EQUIPO 0: ES INCREIBLE PERO NO SE NOS DA
+Juego finalizado en empate

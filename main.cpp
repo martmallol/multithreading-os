@@ -11,9 +11,9 @@
 
 using namespace std;
 
-const estrategia strat = SECUENCIAL;
+const estrategia strat = USTEDES;
 
-int main(){
+int main() {
     
     Config config = *(new Config());
 
@@ -22,7 +22,7 @@ int main(){
  
 
 	// Creo equipos (lanza procesos)
-	int quantum = -1;
+	int quantum = 5;
 	Equipo rojo(&belcebu, ROJO, strat, config.cantidad_jugadores, quantum, config.pos_rojo);
 	Equipo azul(&belcebu, AZUL, strat, config.cantidad_jugadores, quantum, config.pos_azul);
     
@@ -33,6 +33,9 @@ int main(){
 	azul.terminar();	
     //belcebu.play();
 
-    cout << "Bandera capturada por el equipo "<< belcebu.ganador << ". Felicidades!" << endl;
-
+    if(belcebu.ganador == ROJO || belcebu.ganador == AZUL){
+        cout << "Bandera capturada por el equipo "<< belcebu.ganador << ". Felicidades!" << endl;
+    } else{
+        cout << "Juego finalizado en empate" <<endl;
+    }
 }

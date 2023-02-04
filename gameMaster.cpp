@@ -113,72 +113,63 @@ void gameMaster::mover_jugador_tablero(coordenadas pos_anterior, coordenadas pos
 }
 
 int gameMaster::mover_jugador(direccion dir, int nro_jugador) {
-	// Chequear que la movida sea valida
-	// Que no se puedan mover 2 jugadores a la vez
-    // setear la variable ganador
-    // Devolver acorde a la descripción
+	coordenadas posAnterior; bool gano; // indefinidas por ahora
+	posAnterior = (this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] : 
+									pos_jugadores_azules[nro_jugador];
+	coordenadas posProxima = proxima_posicion(posAnterior, dir);
 	
-	// TODO: EMPLEAR UNA MATRIZ DE MUTEXES POR CADA POSICION DEL TABLERO ASI NO LOCKEAMOS A TODOS MIENTRAS ALGUIEN SE MUEVE 
+	//Se mueve directamente
+	//Log
+	cout << "Pos anterior de jugador "<< nro_jugador << " del equipo " << this->turno <<": ("<<posAnterior.first<<","<<posAnterior.second<<")"<<endl;
+	cout << "Pos próxima de jugador "<< nro_jugador << " del equipo " << this->turno <<": ("<<posProxima.first<<","<<posProxima.second<<")"<<endl;
+	cout << "Llamo a mover_jugador_tablero ("<< nro_jugador <<")" <<endl;
+
+	//Alguien jugó, verificando posible empate, si vine a la función es porque alguien se mueve
+	(this->turno == ROJO) ? movio_alguien_rojo++ : movio_alguien_azul++;
+
+	// Chequeo ganador
+	gano = (this->turno == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
 	
-	lock_guard<mutex> lock(mtx); //hace un mtx.lock()
-	//zona crítica
-	if(quantum > 0 || quantum == -1) {
-		//color color = this->turno;
-		coordenadas posAnterior; bool noHayNadie; bool sePuedeMoverAhi; bool gano; // indefinidas por ahora
-		
-		posAnterior = (this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] : 
-										pos_jugadores_azules[nro_jugador];
-
-		coordenadas posProxima = proxima_posicion(posAnterior, dir);
-		noHayNadie = es_color_libre(tablero[posProxima.first][posProxima.second]); 
-		sePuedeMoverAhi = es_posicion_valida(posProxima) && noHayNadie;
-		
-		if(sePuedeMoverAhi) {
-			//sleep(1);
-			mover_jugador_tablero(posAnterior, posProxima, this->turno);
-			(this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
-							pos_jugadores_azules[nro_jugador] = posProxima;
-			cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME MOVI A (" << posProxima.first << ", " << posProxima.second << ")" << endl;
-		} else {
-			// CHEQUEAMOS EL GANADOR DOS VECES: UNA EN EL ELSE Y OTRA DESPUES, CAMBIAR ESO, REDUNDANCIA
-			int banderaContraria = (this->turno == ROJO) ? BANDERA_AZUL : BANDERA_ROJA;
-			if(tablero[posProxima.first][posProxima.second] == banderaContraria) {
-				cout << "mover_jugador: LLEGUE A LA BANDERA, GANE!!!!!!!" << endl;
-			} else {
-				cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME CHOQUE CON UNA PARED O CON OTRA PERSONA" << endl;
-			}
-		}
-
-		// Chequear ganador
-		gano = (this->turno == ROJO) ? (posProxima == pos_bandera_azul) : (posProxima == pos_bandera_roja);
-		if (gano) ganador = this->turno;
-		if (quantum > 0) quantum--;
-		return (gano ? 0 : nro_ronda); // "devuelve el nro de ronda o 0 si el equipo gano"
-	} else {
-		return nro_ronda;
+	//Movimiento
+	if(!gano) {	
+		mover_jugador_tablero(posAnterior, posProxima, this->turno);
+		(this->turno == ROJO) ? pos_jugadores_rojos[nro_jugador] = posProxima : 
+					pos_jugadores_azules[nro_jugador] = posProxima;
+		cout << "mover_jugador: SOY EL JUGADOR "<< nro_jugador <<" DEL EQUIPO " << this->turno << " Y ME MOVI A (" << posProxima.first << ", " << posProxima.second << ")" << endl;
+	} 
+	// Ganamos
+	else {
+		cout << "mover_jugador: LLEGUE A LA BANDERA, GANE!!!!!!!" << endl;
 	}
-	//se llama al mtx.unlock() automaticamente
+	
+	if (gano) ganador = this->turno, this->turno = VACIO;
+	if (quantum > 0) quantum--; 
+	return (gano ? 0 : nro_ronda); // "devuelve el nro de ronda o 0 si el equipo gano"
 }
 
 void gameMaster::termino_ronda(color equipo) {
-	//sleep(1);
-	cout << "termino_ronda: LISTO PARA TERMINAR LA RONDA" << endl;
-	// FIXME: Hacer chequeo de que es el color correcto que está llamando
-	// FIXME: Hacer chequeo que hayan terminado todos los jugadores del equipo o su quantum (via mover_jugador)
-	if(equipo == turno && quantum <= 0) {	
+	
+	if(equipo == turno) {	
 		string printEquipo = (equipo == ROJO) ? "rojo" : "azul";
-		cout << "termino_ronda: Jugador del equipo " << printEquipo << ": Termino la ronda numero: " << nro_ronda << endl << endl;;
+		cout << "termino_ronda: Jugador del equipo " << printEquipo << ": Termino la ronda numero: " << nro_ronda << endl << endl;
 		this->turno = (equipo == ROJO) ? AZUL : ROJO;
 		quantum = quantumsOriginales[turno];
 		stratActual = strats[turno];
 		nro_ronda++;
 	}
+
+	//Me fijo si jugó alguien de algún equipo esta ronda. Caso contrario, hay empate y el juego termina
+	if(movio_alguien_rojo == 0 && movio_alguien_azul == 0 && turno == ROJO){
+		ganador = EMPATE; 
+	} else if(turno == ROJO){
+		movio_alguien_rojo = 0;
+		movio_alguien_azul = 0;
+	} 
 	
-	// HACE FALTA MUTEX ACA??
 	// Si es la primera ronda despierto a los del azul que estan todos dormidos
 	if (nro_ronda == 1) {
 		for (int i = 0; i < jugadores_por_equipos; i++) {
-			(sem_post(&turno_azul), semAzul++);
+			sem_post(&turno_azul);
 		}
 		dormidos[equipo]++;
 		sem_wait(&termina_ronda_rojo);
@@ -195,7 +186,7 @@ void gameMaster::termino_ronda(color equipo) {
 	}
 	
 	// Me despierto y levanto a los de mi equipo
-	printf("termino_ronda: ME DESPERTE! \n");
+	cout<<"termino_ronda: ME DESPERTE!"<<endl;
 	dormidos[equipo]--;
 
 	// Si termino el juego, nos despertamos todos los jugadores de ambos equipos
@@ -203,9 +194,9 @@ void gameMaster::termino_ronda(color equipo) {
 		(equipo == ROJO) ? sem_post(&termina_ronda_azul) : sem_post(&termina_ronda_rojo);
 	}
 
-	printf("termino_ronda: Voy a despertar a mis compas! \n");
+	cout<<"termino_ronda: Voy a despertar a mis compas!"<<endl;
 	for (int i = 0; i < jugadores_por_equipos-1; i++) {
-		(equipo == ROJO) ? (sem_post(&turno_rojo), semRojo++) : (sem_post(&turno_azul), semAzul++);
+		(equipo == ROJO) ? sem_post(&turno_rojo): sem_post(&turno_azul);
 	}
 }
 

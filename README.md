@@ -56,3 +56,4 @@ C++, processes, threads, semaphores, barriers, and mutexes.
 - How to prevent **race conditions** and **deadlocks** by implementing **semaphores**, **mutexes** and **barriers** on our game. These tools are *very* important while programming a multithread application/game.
 - Manipulate processes and threads so we can make them do what we intend to, but *not* making the game sequential as a consecuence. The parallelism was one of the most important things to preserve, and it was indeed preserved.
 - The importance, power and efficieny of 'parallelism' over 'sequentialism'.
+- Hpw to create a proper Makefile that takes charge of the whole project's compilation.

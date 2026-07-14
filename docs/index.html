@@ -114,6 +114,7 @@
   #board .fr{color:var(--red);font-weight:700}
   #board .fb{color:var(--blue);font-weight:700}
   #board .g{color:var(--grid-dim)}
+  #board .wall{color:var(--phosphor-faint)}
   #board .win{color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.6)}
   .boardpanel{position:relative;align-self:start;overflow:hidden}
   #winover{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
@@ -126,19 +127,25 @@
     text-shadow:0 0 8px rgba(255,176,0,.5)}
   @keyframes winpulse{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
   #winover.show .big{animation:winpulse .35s ease-out}
-  /* flag-placement overlay (shown until the player picks a corner) */
-  #setup{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    background:rgba(4,7,4,.92);text-align:center;padding:16px;z-index:7}
+  /* flag-placement prompt — a banner at the top of the board (not a full
+     cover) so the flashing corner flags underneath stay visible & clickable */
+  /* centered pill — sits in the empty middle of the board, clear of all four
+     corner flags so they stay visible and clickable */
+  #setup{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:7;
+    max-width:80%;padding:10px 16px;border:1px solid var(--phosphor-faint);
+    background:rgba(4,7,4,.92);text-align:center;
+    color:var(--text-dim);font-size:12px;letter-spacing:.04em}
   #setup.hide{display:none}
-  .setup-head{font-size:clamp(14px,2.4vw,20px);letter-spacing:.08em;text-transform:uppercase}
-  .setup-head b{color:var(--red)}
-  .setup-head b.blue{color:var(--blue)}
-  .setup-hint{margin:8px 0 16px;color:var(--text-dim);font-size:12px;letter-spacing:.06em}
-  .corners{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
-    width:min(180px,60%);margin:0 auto}
-  .corners button{font-size:22px;padding:14px;min-height:0;color:var(--phosphor);
-    line-height:1}
-  .corners button:hover{background:var(--phosphor);color:#04120a}
+  #setup b{color:var(--red)}
+  #setup b.blue{color:var(--blue)}
+  #setup .flagpick{color:var(--amber)}
+  /* clickable, flashing candidate corners drawn on the board during setup */
+  #board .pick{color:var(--amber);cursor:pointer;
+    text-shadow:0 0 8px rgba(255,176,0,.7);animation:pickblink 1s steps(1) infinite}
+  #board .pick:hover{color:var(--phosphor);
+    text-shadow:0 0 12px rgba(51,255,102,.9)}
+  @keyframes pickblink{50%{opacity:.28}}
+  @media(prefers-reduced-motion:reduce){#board .pick{animation:none}}
 
   /* overlay strip at the bottom of the board — must not add layout height */
   #winbar{display:none;position:absolute;left:0;right:0;bottom:0;z-index:6;
@@ -348,17 +355,8 @@
       <pre id="board" aria-label="live game board"></pre>
       <div id="winbar" role="status"></div>
       <div id="winover" role="button" tabindex="0" aria-label="game over — play again"></div>
-      <div id="setup">
-        <div class="setup-inner">
-          <div class="setup-head">you are team <b id="myteam">RED</b></div>
-          <div class="setup-hint">place your flag — the enemy takes the opposite corner</div>
-          <div class="corners" role="group" aria-label="choose your flag corner">
-            <button data-c="tl" aria-label="top-left corner">◤</button>
-            <button data-c="tr" aria-label="top-right corner">◥</button>
-            <button data-c="bl" aria-label="bottom-left corner">◣</button>
-            <button data-c="br" aria-label="bottom-right corner">◢</button>
-          </div>
-        </div>
+      <div id="setup" role="status">
+        you are team <b id="myteam">RED</b> — click a flashing <span class="flagpick">⚑</span> corner to place your flag
       </div>
     </div>
 
@@ -367,8 +365,10 @@
         <div class="bar"><span><span class="dot">▸</span> scheduler</span><span id="stratlbl">FAIR SHARE</span></div>
         <div class="schedbody">
           <div class="turnline" aria-live="polite">turn: <span class="who" id="turnwho">—</span> · <span id="turnact">waiting at barrier</span></div>
+          <div class="kv"><span>team RED · sched</span><b class="red" id="sr">—</b></div>
           <div class="kv"><span>team RED · flag dist</span><b class="red" id="dr">—</b></div>
           <div class="meter red" aria-hidden="true"><i id="mr"></i></div>
+          <div class="kv"><span>team BLUE · sched</span><b class="blue" id="sb">—</b></div>
           <div class="kv"><span>team BLUE · flag dist</span><b class="blue" id="db">—</b></div>
           <div class="meter blue" aria-hidden="true"><i id="mb"></i></div>
           <div class="kv"><span>state</span><b id="state">IDLE</b></div>
@@ -513,52 +513,139 @@ const CORNERS={
   bl:{id:"bl",flag:()=>({x:1,y:H-2}),      opp:"tr",dx:1, dy:-1},
   br:{id:"br",flag:()=>({x:W-2,y:H-2}),    opp:"tl",dx:-1,dy:-1},
 };
-// scatter NPLAYERS just inside a corner, marching toward the centre
-function spawnTeam(corner){
+const key=(x,y)=>x+","+y;
+const inBounds=(x,y)=>x>=0&&x<W&&y>=0&&y<H;
+
+// Randomly scatter NPLAYERS inside a corner's home zone (a box a few cells
+// deep), avoiding walls, the flag, and other pieces. The randomness makes each
+// team's starting distances slightly different — no more perfect symmetry.
+function spawnTeam(corner, walls, taken){
   const c=CORNERS[corner], f=c.flag(), team=[];
+  const depth=Math.min(5, Math.max(3, Math.floor(Math.min(W,H)/4)));
+  // candidate cells in the home box, excluding the flag cell itself
+  const cells=[];
+  for(let a=1;a<=depth;a++) for(let b=1;b<=depth;b++){
+    const x=f.x+c.dx*a, y=f.y+c.dy*b;
+    if(!inBounds(x,y)) continue;
+    if(walls.has(key(x,y))||taken.has(key(x,y))) continue;
+    cells.push({x,y});
+  }
+  // shuffle candidates
+  for(let i=cells.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]];}
   for(let i=0;i<NPLAYERS;i++){
-    let x=f.x + c.dx*(1 + (i>>1));   // 2 columns
-    let y=f.y + c.dy*(1 + (i&1));    // 2 rows
-    x=Math.max(0,Math.min(W-1,x));
-    y=Math.max(0,Math.min(H-1,y));
-    team.push({x,y,alive:true});
+    const cell=cells[i] || {x:f.x+c.dx, y:f.y+c.dy}; // fallback if box too full
+    taken.add(key(cell.x,cell.y));
+    team.push({x:cell.x, y:cell.y, alive:true});
   }
   return team;
 }
 
+// Random walls scattered across the middle of the board. Kept clear of the two
+// flags and their home zones so both teams can always leave and the flag is
+// always reachable. Point-symmetric through the centre so neither side gets an
+// unfair share of obstacles.
+function makeWalls(flagR, flagB){
+  const walls=new Set();
+  const clear=new Set();          // cells that must stay open (flags + zones)
+  for(const f of [flagR,flagB]){
+    for(let dx=-2;dx<=2;dx++) for(let dy=-2;dy<=2;dy++){
+      clear.add(key(f.x+dx,f.y+dy));
+    }
+  }
+  const density=0.10;             // ~10% of interior cells
+  const cx=(W-1)/2, cy=(H-1)/2;
+  for(let y=1;y<H-1;y++){
+    for(let x=1;x<W-1;x++){
+      if(x>cx) continue;          // only decide one half; mirror the rest
+      if(clear.has(key(x,y))) continue;
+      const mx=W-1-x, my=H-1-y;   // point-symmetric partner
+      if(clear.has(key(mx,my))) continue;
+      if(Math.random()<density){
+        walls.add(key(x,y));
+        walls.add(key(mx,my));
+      }
+    }
+  }
+  return walls;
+}
+
+// Pick a random strategy for the rival, biased to differ from the human's so
+// the match is "your scheduler vs a different one", not a mirror.
+function rivalStrat(myStrat){
+  const all=[STRAT.SEQ,STRAT.RR,STRAT.SHORT,STRAT.UDS];
+  const others=all.filter(s=>s!==myStrat);
+  return others[Math.floor(Math.random()*others.length)];
+}
+
 // Build a game where the human's flag sits on `myCorner` and the rival's on the
-// opposite corner. RED always moves first (turno_rojo), regardless of team.
+// opposite corner. Each team runs its OWN strategy. RED always moves first.
 function makeState(strat, quantum){
   const redCorner  = myTeam===1 ? myCorner : CORNERS[myCorner].opp;
   const blueCorner = myTeam===1 ? CORNERS[myCorner].opp : myCorner;
   const flagR=CORNERS[redCorner].flag();
   const flagB=CORNERS[blueCorner].flag();
+  const enemyStrat=rivalStrat(strat);
+  // human's strat goes to the human's team; rival's to the other
+  const stratR = myTeam===1 ? strat : enemyStrat;
+  const stratB = myTeam===1 ? enemyStrat : strat;
+  const walls=makeWalls(flagR, flagB);
+  const taken=new Set([key(flagR.x,flagR.y), key(flagB.x,flagB.y)]);
   return {
-    strat, quantum,
+    stratR, stratB, quantum,
     round:0,
     flagR, flagB,
     redCorner, blueCorner,
-    red:spawnTeam(redCorner),
-    blue:spawnTeam(blueCorner),
+    walls,
+    red:spawnTeam(redCorner, walls, taken),
+    blue:spawnTeam(blueCorner, walls, taken),
     winner:null,
     turn:1, // 1=red first (rojo empieza), 0=blue
     rrIdx:{1:0,0:0},
+    // stall detection → declare a draw if no team gets closer for a while
+    bestR:Infinity, bestB:Infinity, stall:0,
   };
 }
 
-// greedy direction toward target: Y axis first, then X (mirrors apuntar_a)
-function stepToward(p, target, occupied){
-  const tries=[];
-  if(target.y>p.y) tries.push({x:p.x,y:p.y+1});
-  else if(target.y<p.y) tries.push({x:p.x,y:p.y-1});
-  if(target.x>p.x) tries.push({x:p.x+1,y:p.y});
-  else if(target.x<p.x) tries.push({x:p.x-1,y:p.y});
-  for(const n of tries){
-    if(n.x<0||n.x>=W||n.y<0||n.y>=H) continue;
-    if(occupied.has(n.x+","+n.y)) continue;
-    return n;
+// BFS shortest-path step: returns the first cell along the shortest route from
+// p to target, going around walls and other pieces. Real pathfinding (not a
+// one-step greedy check) is what stops players getting wedged between a wall
+// and a teammate — if a route exists, they take it; if none does, they wait.
+function stepToward(p, target, occupied, walls){
+  if(p.x===target.x && p.y===target.y) return null;
+  const blocked=(x,y)=>{
+    if(!inBounds(x,y)) return true;
+    if(walls && walls.has(x+","+y)) return true;
+    // the target cell (enemy flag) is never "blocked" — it's the goal
+    if(x===target.x && y===target.y) return false;
+    return occupied.has(x+","+y);
+  };
+  const seen=new Set([p.x+","+p.y]);
+  // queue holds {x,y, first:<first-step cell from p>}
+  const q=[];
+  const DIRS=[[0,-1],[0,1],[-1,0],[1,0]];
+  for(const [ox,oy] of DIRS){
+    const nx=p.x+ox, ny=p.y+oy;
+    if(blocked(nx,ny)) continue;
+    const first={x:nx,y:ny};
+    if(nx===target.x && ny===target.y) return first;
+    seen.add(nx+","+ny);
+    q.push({x:nx,y:ny,first});
   }
-  return null;
+  let head=0;
+  const LIMIT=W*H;  // safety cap
+  while(head<q.length && head<LIMIT){
+    const cur=q[head++];
+    for(const [ox,oy] of DIRS){
+      const nx=cur.x+ox, ny=cur.y+oy;
+      const k=nx+","+ny;
+      if(seen.has(k)) continue;
+      if(nx===target.x && ny===target.y) return cur.first; // reached goal
+      if(blocked(nx,ny)) continue;
+      seen.add(k);
+      q.push({x:nx,y:ny,first:cur.first});
+    }
+  }
+  return null; // no path right now
 }
 
 function occupancy(s){
@@ -570,23 +657,23 @@ function occupancy(s){
 
 function reached(p, flag){ return p.x===flag.x && p.y===flag.y; }
 
-// advance ONE team's turn according to strategy. returns a log fragment.
+// advance ONE team's turn according to ITS OWN strategy. returns a log fragment.
 function teamTurn(s){
   const isRed = s.turn===1;
   const team = isRed? s.red : s.blue;
   const targetFlag = isRed? s.flagB : s.flagR;
+  const strat = isRed? s.stratR : s.stratB;
   const tag = isRed? "r":"b";
   const label = isRed? "RED":"BLUE";
   let moved=[];
 
   const q = s.quantum;
-  const occ = occupancy(s);
 
   function tryMove(idx){
     const p=team[idx];
     const occNow = occupancy(s);
     occNow.delete(p.x+","+p.y);
-    const n=stepToward(p,targetFlag,occNow);
+    const n=stepToward(p,targetFlag,occNow,s.walls);
     if(n){ p.x=n.x; p.y=n.y; moved.push(idx);
       if(reached(p,targetFlag)){ s.winner=isRed?1:0; }
       return true;
@@ -594,10 +681,10 @@ function teamTurn(s){
     return false;
   }
 
-  if(s.strat===STRAT.SEQ){
+  if(strat===STRAT.SEQ){
     for(let i=0;i<NPLAYERS && !s.winner;i++) tryMove(i);
   }
-  else if(s.strat===STRAT.RR){
+  else if(strat===STRAT.RR){
     let steps=q, guard=0;
     while(steps>0 && !s.winner && guard<q*NPLAYERS+NPLAYERS){
       const idx=s.rrIdx[s.turn]%NPLAYERS;
@@ -606,13 +693,13 @@ function teamTurn(s){
       steps--; guard++;
     }
   }
-  else if(s.strat===STRAT.SHORT){
+  else if(strat===STRAT.SHORT){
     // only the closest player moves, one step
     let best=0,bd=Infinity;
     team.forEach((p,i)=>{const d=dist(p,targetFlag); if(d<bd){bd=d;best=i;}});
     tryMove(best);
   }
-  else if(s.strat===STRAT.UDS){
+  else if(strat===STRAT.UDS){
     // split quantum in powers of two: farthest gets most
     const chunks=[]; let rem=q;
     while(rem>0 && chunks.length<NPLAYERS){
@@ -734,18 +821,39 @@ addEventListener("resize", scheduleSize);
 function render(s){
   const grid=[];
   for(let y=0;y<H;y++){grid.push(new Array(W).fill(null));}
-  // flags
-  grid[s.flagR.y][s.flagR.x]={c:"⚑",cls:"fr"};
-  grid[s.flagB.y][s.flagB.x]={c:"⚑",cls:"fb"};
-  // players (numbers)
-  s.red.forEach((p,i)=>{ grid[p.y][p.x]={c:String(i),cls:"r"}; });
-  s.blue.forEach((p,i)=>{ grid[p.y][p.x]={c:String(i),cls:"b"}; });
+  const setupMode=(myCorner===null);
+  // walls (drawn underneath everything) — only once the game is set up, so the
+  // placement screen stays clean and the shown walls match the actual match
+  if(s.walls && !setupMode){
+    for(const w of s.walls){
+      const [wx,wy]=w.split(",").map(Number);
+      if(inBounds(wx,wy)) grid[wy][wx]={c:"▓",cls:"wall"};
+    }
+  }
+  if(setupMode){
+    // during flag placement: show the 4 candidate corners as flashing,
+    // clickable flags instead of the teams' pieces
+    for(const id in CORNERS){
+      const f=CORNERS[id].flag();
+      grid[f.y][f.x]={c:"⚑",cls:"pick",pick:id};
+    }
+  }else{
+    // flags
+    grid[s.flagR.y][s.flagR.x]={c:"⚑",cls:"fr"};
+    grid[s.flagB.y][s.flagB.x]={c:"⚑",cls:"fb"};
+    // players (numbers)
+    s.red.forEach((p,i)=>{ grid[p.y][p.x]={c:String(i),cls:"r"}; });
+    s.blue.forEach((p,i)=>{ grid[p.y][p.x]={c:String(i),cls:"b"}; });
+  }
 
   let html="";
   for(let y=0;y<H;y++){
     for(let x=0;x<W;x++){
       const cell=grid[y][x];
-      if(cell){ html+=`<span class="${cell.cls}">${cell.c}</span>`; }
+      if(cell){
+        const attr=cell.pick?` data-c="${cell.pick}" role="button" tabindex="0" aria-label="place flag ${cell.pick}"`:"";
+        html+=`<span class="${cell.cls}"${attr}>${cell.c}</span>`;
+      }
       else{ html+=`<span class="g">·</span>`; }
     }
     html+="\n";
@@ -754,12 +862,24 @@ function render(s){
 
   document.getElementById("arenadim").textContent="arena :: "+W+"×"+H;
   document.getElementById("roundlbl").textContent="round "+String(s.round).padStart(3,"0");
-  const ndr=nearestDist(s.red,s.flagB), ndb=nearestDist(s.blue,s.flagR);
-  document.getElementById("dr").textContent=ndr;
-  document.getElementById("db").textContent=ndb;
-  document.getElementById("mr").style.width=Math.max(0,Math.min(100,Math.round(100*(1-ndr/(d0r||1)))))+"%";
-  document.getElementById("mb").style.width=Math.max(0,Math.min(100,Math.round(100*(1-ndb/(d0b||1)))))+"%";
-  document.getElementById("stratlbl").textContent=STRAT_NAMES[s.strat];
+  if(setupMode){
+    document.getElementById("dr").textContent="—";
+    document.getElementById("db").textContent="—";
+    document.getElementById("mr").style.width="0%";
+    document.getElementById("mb").style.width="0%";
+  }else{
+    const ndr=nearestDist(s.red,s.flagB), ndb=nearestDist(s.blue,s.flagR);
+    document.getElementById("dr").textContent=ndr;
+    document.getElementById("db").textContent=ndb;
+    document.getElementById("mr").style.width=Math.max(0,Math.min(100,Math.round(100*(1-ndr/(d0r||1)))))+"%";
+    document.getElementById("mb").style.width=Math.max(0,Math.min(100,Math.round(100*(1-ndb/(d0b||1)))))+"%";
+  }
+  // per-team strategies (always visible so the matchup is clear)
+  document.getElementById("sr").textContent = s.stratR!=null ? STRAT_NAMES[s.stratR] : "—";
+  document.getElementById("sb").textContent = s.stratB!=null ? STRAT_NAMES[s.stratB] : "—";
+  // scheduler label shows the human's own strategy
+  const myStrat = myTeam===1 ? s.stratR : s.stratB;
+  document.getElementById("stratlbl").textContent = myStrat!=null ? STRAT_NAMES[myStrat] : "—";
 }
 
 const logEl=document.getElementById("log");
@@ -812,6 +932,30 @@ function doStep(){
     log(`<span class="cap">⚑ FLAG CAPTURED by team ${wl}. sem_post → wake the loser.</span>`,"cap");
     render(state);
     flashWin(state.winner);
+    running=false; syncPlayBtn();
+    return;
+  }
+
+  // stall detection: if neither team has gotten closer to the enemy flag for
+  // many rounds, the match is deadlocked (walls / mutual blocking) → draw
+  const ndr=nearestDist(state.red,state.flagB), ndb=nearestDist(state.blue,state.flagR);
+  if(ndr<state.bestR || ndb<state.bestB){
+    state.bestR=Math.min(state.bestR,ndr);
+    state.bestB=Math.min(state.bestB,ndb);
+    state.stall=0;
+  }else{
+    state.stall++;
+  }
+  if(state.stall > 6*NPLAYERS){
+    state.winner="draw";
+    document.getElementById("state").textContent="DRAW";
+    document.getElementById("state").style.color="var(--amber)";
+    const wo=document.getElementById("winover");
+    wo.innerHTML='<div class="big" style="color:var(--amber);text-shadow:0 0 20px rgba(255,176,0,.7)">DRAW — DEADLOCK</div>'+
+      '<div class="sub2">everyone is stuck · click to play again</div>';
+    wo.classList.add("show");
+    log(`<span class="cap">== deadlock: no team can advance · draw ==</span>`,"cap");
+    render(state);
     running=false; syncPlayBtn();
     return;
   }
@@ -881,6 +1025,7 @@ const readQ=()=>parseInt(document.getElementById("qslider").value,10);
 
 // (Re)build and run the current game — keeps the same team & chosen corner.
 // Used by strategy / quantum / reset, i.e. tweaks that shouldn't re-prompt.
+const usesQuantum=st=>(st===STRAT.RR||st===STRAT.UDS);
 function reset(){
   if(myCorner===null){ newGame(); return; }
   const strat=readStrat(), q=readQ();
@@ -890,25 +1035,35 @@ function reset(){
   setupEl.classList.add("hide");
   document.getElementById("winbar").classList.remove("show");
   document.getElementById("winover").classList.remove("show");
-  const noQ=(strat===STRAT.SEQ||strat===STRAT.SHORT);
+  // quantum matters if EITHER team's strategy uses it
+  const noQ=!(usesQuantum(state.stratR)||usesQuantum(state.stratB));
   document.getElementById("qfield").classList.toggle("off",noQ);
   document.getElementById("qslider").disabled=noQ;
   logEl.innerHTML="";
   document.getElementById("state").textContent="RUNNING";
   document.getElementById("state").style.color="var(--text)";
   const youAre=myTeam===1?"RED":"BLUE";
-  log(`<span class="sys">== you are ${youAre} · flag @ ${myCorner.toUpperCase()} · ${STRAT_NAMES[strat]} q${q} ==</span>`,"sys");
-  log(`<span class="sys">red goes first (turno_rojo posted)</span>`,"sys");
+  const myStrat=myTeam===1?state.stratR:state.stratB;
+  const foeStrat=myTeam===1?state.stratB:state.stratR;
+  log(`<span class="sys">== you are ${youAre} · flag @ ${myCorner.toUpperCase()} · q${q} ==</span>`,"sys");
+  log(`<span class="${myTeam===1?'r':'b'}">you: ${STRAT_NAMES[myStrat]}</span> <span class="sys">vs</span> <span class="${myTeam===1?'b':'r'}">enemy: ${STRAT_NAMES[foeStrat]}</span>`);
+  log(`<span class="sys">red goes first (turno_rojo posted) · ${state.walls.size} walls</span>`,"sys");
   render(state);
   pinArenaHeight();
   running=true; syncPlayBtn();
 }
 
-// Player picked a corner → lock it in and start.
-document.querySelector(".corners").addEventListener("click",e=>{
-  const b=e.target.closest("button"); if(!b) return;
-  myCorner=b.dataset.c;
+// Player clicks a flashing corner flag on the board → lock it in and start.
+function pickCorner(el){
+  if(myCorner!==null || !el || !el.dataset.c) return;
+  myCorner=el.dataset.c;
   reset();
+}
+boardEl.addEventListener("click",e=>{ pickCorner(e.target.closest(".pick")); });
+boardEl.addEventListener("keydown",e=>{
+  if(e.key!=="Enter" && e.key!==" ") return;
+  const el=e.target.closest(".pick"); if(!el) return;
+  e.preventDefault(); pickCorner(el);
 });
 
 document.getElementById("stratbtns").addEventListener("click",e=>{

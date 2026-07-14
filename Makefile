@@ -6,16 +6,16 @@ OBJS := gameMaster.o equipo.o config.o barrera.o
 # Phonies
 .PHONY: all clean
 
-all: juego 
+all: game
 
-clean: 
+clean:
 	rm -f *.o
 	rm -f tests/*.o
-	rm -f juego
+	rm -f game
 
 # Game
-juego: main.cpp $(OBJS) # Executable
-	$(CXX) $(CXXFLAGS) $^ -o $@ -lpthread 
+game: main.cpp $(OBJS) # Executable
+	$(CXX) $(CXXFLAGS) $^ -o $@ -lpthread
 
 config.o: config.cpp config.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@ 

@@ -1,4 +1,8 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
 <title>CAPTURE THE FLAG // multithreaded scheduler</title>
+<meta name="description" content="Multithreaded Capture the Flag: processes, threads, semaphores and barriers — live simulation of 4 scheduling strategies.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root{
@@ -15,7 +19,7 @@
     --amber:#ffb000;
     --amber-dim:#7a5400;
     --text:#a8d8b4;
-    --text-dim:#5c8267;
+    --text-dim:#6f9d7d;
     --mono:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;
   }
   *{box-sizing:border-box}
@@ -44,8 +48,9 @@
   a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
   /* ---- boot sequence ---- */
+  .bootpanel{margin-top:14px}
   #boot{white-space:pre-wrap;color:var(--phosphor-dim);font-size:13px;line-height:1.45;
-    min-height:1px;margin:0 0 clamp(14px,3vw,26px)}
+    min-height:1px;margin:0;padding:12px}
   #boot .ok{color:var(--phosphor)}
   #boot .warn{color:var(--amber)}
   .cursor{display:inline-block;width:.6em;height:1.05em;background:var(--phosphor);
@@ -56,66 +61,161 @@
   header{border:1px solid var(--phosphor-faint);background:var(--bg-panel);
     padding:clamp(12px,2.5vw,22px);margin-bottom:18px;position:relative}
   header .tag{position:absolute;top:-1px;right:-1px;background:var(--phosphor-faint);
-    color:#04120a;font-size:11px;letter-spacing:.18em;padding:3px 9px}
-  pre.logo{margin:0;color:var(--phosphor);font-size:clamp(6px,1.55vw,11px);line-height:1.05;
+    color:#04120a;font-size:11px;letter-spacing:.16em;padding:3px 9px}
+  pre.logo{margin:0;color:var(--phosphor);font-size:clamp(4px,0.82vw,9px);line-height:1.05;
     text-shadow:0 0 8px rgba(51,255,102,.45);overflow-x:auto}
+  .logo .fw{color:var(--amber);text-shadow:0 0 10px rgba(255,176,0,.5)}
   h1{position:absolute;left:-9999px}
   .sub{margin-top:10px;color:var(--text-dim);font-size:13px;letter-spacing:.04em}
-  .sub b{color:var(--red)}
-  .sub i{color:var(--blue);font-style:normal}
+  .sub b{font-weight:700}
+  .sub .rp{color:var(--red)}
+  .sub .tp{color:var(--blue)}
+
+  /* ---- how-it-works panel inside the masthead ---- */
+  .guide{margin-top:14px;border-top:1px solid var(--phosphor-faint)}
+  .guide > summary{list-style:none;cursor:pointer;padding-top:12px;
+    color:var(--phosphor-dim);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    display:none} /* desktop: always expanded, no toggle */
+  .guide > summary::-webkit-details-marker{display:none}
+  .guide > summary::after{content:" ▸";}
+  .guide[open] > summary::after{content:" ▾";}
+  .howto{margin-top:12px;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 22px}
+  .howto .step{color:var(--text-dim);font-size:12.5px;line-height:1.5}
+  .howto .step b{color:var(--phosphor);font-weight:600}
+  .howto .k{color:var(--text);font-weight:600}
+  .legend{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 16px;
+    font-size:12px;color:var(--text-dim)}
+  .legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .legend .sw{font-weight:700}
+  .legend .r{color:var(--red)}
+  .legend .b{color:var(--blue)}
+  .legend .g{color:var(--grid-dim)}
 
   /* ---- console layout ---- */
-  .console{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
-  @media(max-width:820px){.console{grid-template-columns:1fr}}
+  /* Row height is pinned to the arena (--arena-h, set from JS) so the side
+     column can't grow the layout as stdout fills — it scrolls instead. */
+  .console{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;
+    align-items:stretch;grid-auto-rows:var(--arena-h,auto)}
+  @media(max-width:820px){.console{grid-template-columns:1fr;grid-auto-rows:auto}}
   .panel{border:1px solid var(--phosphor-faint);background:var(--bg-panel)}
   .panel > .bar{display:flex;justify-content:space-between;align-items:center;
     padding:7px 12px;border-bottom:1px solid var(--phosphor-faint);
     color:var(--text-dim);font-size:11px;letter-spacing:.16em;text-transform:uppercase}
   .panel > .bar .dot{color:var(--phosphor)}
 
-  /* board */
-  #board{margin:0;padding:14px 16px;font-size:clamp(9px,1.9vw,15px);line-height:1.08;
-    letter-spacing:.06em;overflow-x:auto;white-space:pre}
+  /* board — cell size is fixed; the M×N grid is computed from the panel size */
+  #board{margin:0 auto;padding:12px;width:max-content;max-width:100%;
+    font-size:15px;
+    line-height:1.32;letter-spacing:.36em;overflow:hidden;white-space:pre}
   #board .r{color:var(--red);text-shadow:0 0 6px rgba(255,75,75,.5)}
   #board .b{color:var(--blue);text-shadow:0 0 6px rgba(74,168,255,.5)}
   #board .fr{color:var(--red);font-weight:700}
   #board .fb{color:var(--blue);font-weight:700}
   #board .g{color:var(--grid-dim)}
   #board .win{color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.6)}
+  .boardpanel{position:relative;align-self:start;overflow:hidden}
+  #winover{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;background:rgba(4,7,4,.85);text-align:center;padding:20px;cursor:pointer;z-index:5}
+  #winover.show{display:flex}
+  #winover .big{font-family:var(--mono);font-size:clamp(22px,4vw,44px);font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  #winover .big.r{color:var(--red);text-shadow:0 0 20px rgba(255,75,75,.8)}
+  #winover .big.b{color:var(--blue);text-shadow:0 0 20px rgba(74,168,255,.8)}
+  #winover .sub2{margin-top:10px;color:var(--amber);font-size:12px;letter-spacing:.16em;text-transform:uppercase;
+    text-shadow:0 0 8px rgba(255,176,0,.5)}
+  @keyframes winpulse{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  #winover.show .big{animation:winpulse .35s ease-out}
+  /* flag-placement overlay (shown until the player picks a corner) */
+  #setup{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(4,7,4,.92);text-align:center;padding:16px;z-index:7}
+  #setup.hide{display:none}
+  .setup-head{font-size:clamp(14px,2.4vw,20px);letter-spacing:.08em;text-transform:uppercase}
+  .setup-head b{color:var(--red)}
+  .setup-head b.blue{color:var(--blue)}
+  .setup-hint{margin:8px 0 16px;color:var(--text-dim);font-size:12px;letter-spacing:.06em}
+  .corners{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
+    width:min(180px,60%);margin:0 auto}
+  .corners button{font-size:22px;padding:14px;min-height:0;color:var(--phosphor);
+    line-height:1}
+  .corners button:hover{background:var(--phosphor);color:#04120a}
 
-  /* right column */
-  .side{display:flex;flex-direction:column;gap:14px}
+  /* overlay strip at the bottom of the board — must not add layout height */
+  #winbar{display:none;position:absolute;left:0;right:0;bottom:0;z-index:6;
+    padding:9px 14px;border-top:1px solid var(--amber-dim);background:rgba(4,7,4,.92);
+    color:var(--amber);font-size:12px;letter-spacing:.16em;text-transform:uppercase;
+    text-shadow:0 0 8px rgba(255,176,0,.5)}
+  #winbar.show{display:block}
+
+  /* right column — fills the arena's fixed height; stdout absorbs the slack.
+     overflow:hidden is a hard guard so it can never paint over the controls. */
+  .side{display:flex;flex-direction:column;gap:14px;height:100%;min-height:0;overflow:hidden}
+  .side .panel:last-child{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
   .schedbody{padding:12px;font-size:12.5px}
   .kv{display:flex;justify-content:space-between;padding:2px 0;color:var(--text-dim)}
   .kv b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
   .kv b.red{color:var(--red)}
   .kv b.blue{color:var(--blue)}
+  .meter{height:4px;background:#0a1f10;margin:2px 0 8px;overflow:hidden}
+  .meter i{display:block;height:100%;width:0;transition:width .3s ease}
+  .meter.red i{background:var(--red);box-shadow:0 0 6px rgba(255,75,75,.6)}
+  .meter.blue i{background:var(--blue);box-shadow:0 0 6px rgba(74,168,255,.6)}
   .turnline{margin:6px 0 10px;padding:6px 8px;border:1px dashed var(--phosphor-faint);
     font-size:12px;color:var(--text-dim)}
   .turnline .who{font-weight:700}
-  #log{margin:0;padding:10px 12px;height:150px;overflow-y:auto;font-size:11.5px;line-height:1.4;
+  #log{margin:0;padding:10px 12px;flex:1 1 auto;min-height:0;overflow-y:auto;
+    font-size:11.5px;line-height:1.4;
     color:var(--text-dim);white-space:pre-wrap;word-break:break-word}
+  /* custom phosphor-green scrollbar to match the terminal look */
+  #log,#board{scrollbar-width:thin;scrollbar-color:var(--phosphor-dim) var(--bg)}
+  #log::-webkit-scrollbar,#board::-webkit-scrollbar{width:10px;height:10px}
+  #log::-webkit-scrollbar-track,#board::-webkit-scrollbar-track{
+    background:#05100a;border-left:1px solid var(--phosphor-faint)}
+  #log::-webkit-scrollbar-thumb,#board::-webkit-scrollbar-thumb{
+    background:var(--phosphor-faint);border:2px solid #05100a;border-radius:0}
+  #log::-webkit-scrollbar-thumb:hover,#board::-webkit-scrollbar-thumb:hover{
+    background:var(--phosphor-dim)}
+  #log::-webkit-scrollbar-corner,#board::-webkit-scrollbar-corner{background:#05100a}
   #log .r{color:var(--red)}
   #log .b{color:var(--blue)}
   #log .sys{color:var(--phosphor-dim)}
   #log .cap{color:var(--amber)}
 
   /* controls */
-  .controls{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 6px}
-  button{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  .ctrlpanel{margin-top:14px}
+  .controls{display:flex;flex-direction:column;gap:12px;padding:12px}
+  .ctrl-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .slider-row{display:flex;flex-wrap:wrap;gap:22px;align-items:center;
+    padding-top:12px;border-top:1px solid var(--phosphor-faint)}
+  .sep{width:1px;align-self:stretch;background:var(--phosphor-faint)}
+  button{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
     background:transparent;color:var(--text);border:1px solid var(--phosphor-faint);
-    padding:8px 14px;cursor:pointer;transition:all .12s}
+    padding:10px 16px;min-height:44px;cursor:pointer;transition:all .12s}
   button:hover{border-color:var(--phosphor);color:var(--phosphor);background:rgba(51,255,102,.06)}
   button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   button[aria-pressed="true"]{border-color:var(--phosphor);color:#04120a;
     background:var(--phosphor);text-shadow:none}
-  .strat-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
-  .field{display:flex;align-items:center;gap:8px;color:var(--text-dim);font-size:12px}
-  input[type=range]{accent-color:var(--phosphor)}
+  .strat-row{display:flex;flex-wrap:wrap;gap:8px}
+  .field{display:flex;align-items:center;gap:10px;color:var(--text-dim);font-size:12px}
+
+  /* squared-off range sliders to match the terminal aesthetic */
+  input[type=range]{-webkit-appearance:none;appearance:none;width:150px;height:14px;
+    background:transparent;cursor:pointer}
+  input[type=range]:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;
+    background:#0a1f10;border:1px solid var(--phosphor-faint)}
+  input[type=range]::-moz-range-track{height:6px;
+    background:#0a1f10;border:1px solid var(--phosphor-faint)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:8px;height:18px;margin-top:-7px;border-radius:0;
+    background:var(--phosphor);box-shadow:0 0 6px rgba(51,255,102,.6)}
+  input[type=range]::-moz-range-thumb{width:8px;height:18px;border:0;border-radius:0;
+    background:var(--phosphor);box-shadow:0 0 6px rgba(51,255,102,.6)}
+  input[type=range]:disabled{opacity:.4;cursor:default}
+  .field.off{opacity:.4}
 
   /* strategy notes */
   .strats{margin-top:26px}
-  .strats h2, .build h2{color:var(--phosphor);font-size:13px;letter-spacing:.2em;text-transform:uppercase;
+  .strats h2, .build h2{color:var(--phosphor);font-size:13px;letter-spacing:.16em;text-transform:uppercase;
     border-bottom:1px solid var(--phosphor-faint);padding-bottom:6px;text-shadow:0 0 6px rgba(51,255,102,.3)}
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px}
   .card{border:1px solid var(--phosphor-faint);background:var(--bg-panel);padding:14px}
@@ -137,40 +237,97 @@
   @media(prefers-reduced-motion:reduce){
     .cursor{animation:none}
     *{scroll-behavior:auto}
+    button,.meter i{transition:none}
+    #winover.show .big{animation:none}
+  }
+
+  /* ---- mobile ---- */
+  @media(max-width:640px){
+    /* the corner tag overlaps the title on small screens — drop it, and let
+       the CAPTURE THE FLAG logo use the full width of the masthead */
+    header .tag{display:none}
+    pre.logo{font-size:2.4vw;width:100%}
+
+    /* how-it-works becomes a collapsible section (JS closes it by default) */
+    .guide > summary{display:block}
+    .guide[open] > summary{margin-bottom:2px}
+    .howto{grid-template-columns:1fr;gap:8px}
+
+    /* tighter control panel — smaller buttons, less vertical bulk */
+    .controls{gap:8px;padding:10px}
+    .slider-row{gap:14px;padding-top:8px}
+    button{padding:7px 10px;min-height:38px;font-size:11px;letter-spacing:.08em}
+    .strat-row{gap:6px}
+    .ctrl-row .sep{display:none}
+    input[type=range]{width:120px}
+
+    /* stdout is secondary on mobile — keep it short so it doesn't dominate */
+    #log{min-height:0;height:96px;flex:0 0 auto}
+    .side .panel:last-child{flex:0 0 auto}
   }
 </style>
 
 <div class="wrap">
-  <div id="boot" aria-hidden="true"></div>
-
   <header>
-    <span class="tag">SO · TP · 2022.2</span>
-    <h1>Capture the Flag — juego multithreaded</h1>
+    <span class="tag">PTHREADS // SCHEDULER</span>
+    <h1>Capture the Flag — a multithreaded game</h1>
     <pre class="logo">
- ██████╗ █████╗ ██████╗ ████████╗██╗   ██╗██████╗ ███████╗    ████████╗██╗  ██╗███████╗
-██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██║   ██║██╔══██╗██╔════╝    ╚══██╔══╝██║  ██║██╔════╝
-██║     ███████║██████╔╝   ██║   ██║   ██║██████╔╝█████╗         ██║   ███████║█████╗
-██║     ██╔══██║██╔═══╝    ██║   ██║   ██║██╔══██╗██╔══╝         ██║   ██╔══██║██╔══╝
-╚██████╗██║  ██║██║        ██║   ╚██████╔╝██║  ██║███████╗       ██║   ██║  ██║███████╗
- ╚═════╝╚═╝  ╚═╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝       ╚═╝   ╚═╝  ╚═╝╚══════╝ ═ FLAG</pre>
-    <div class="sub">Cada equipo es un <b>proceso</b> · cada jugador es un <i>thread</i> · el Game Master arbitra con semáforos, barreras y mutexes. Primer bandera capturada gana.</div>
+ ██████╗ █████╗ ██████╗ ████████╗██╗   ██╗██████╗ ███████╗    ████████╗██╗  ██╗███████╗    <span class="fw">███████╗██╗      █████╗  ██████╗ </span>
+██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██║   ██║██╔══██╗██╔════╝    ╚══██╔══╝██║  ██║██╔════╝    <span class="fw">██╔════╝██║     ██╔══██╗██╔════╝ </span>
+██║     ███████║██████╔╝   ██║   ██║   ██║██████╔╝█████╗         ██║   ███████║█████╗      <span class="fw">█████╗  ██║     ███████║██║  ███╗</span>
+██║     ██╔══██║██╔═══╝    ██║   ██║   ██║██╔══██╗██╔══╝         ██║   ██╔══██║██╔══╝      <span class="fw">██╔══╝  ██║     ██╔══██║██║   ██║</span>
+╚██████╗██║  ██║██║        ██║   ╚██████╔╝██║  ██║███████╗       ██║   ██║  ██║███████╗    <span class="fw">██║     ███████╗██║  ██║╚██████╔╝</span>
+ ╚═════╝╚═╝  ╚═╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝       ╚═╝   ╚═╝  ╚═╝╚══════╝    <span class="fw">╚═╝     ╚══════╝╚═╝  ╚═╝ ╚═════╝ </span></pre>
+    <div class="sub">Every team is a <b class="rp">process</b> · every player is a <b class="tp">thread</b> · the Game Master arbitrates with semaphores, barriers and mutexes.<br>First flag captured wins.</div>
+
+    <details class="guide" open>
+      <summary>how it works &amp; legend</summary>
+      <div class="howto">
+        <div class="step"><b>1 · The board</b><br>Two teams start in opposite corners of a grid. Each team's goal is to reach the <span class="k">enemy flag</span> before the other does.</div>
+        <div class="step"><b>2 · Who moves</b><br>Teams alternate turns (RED first). On its turn, a team's players step one square toward the enemy flag — blocked by walls and by other players.</div>
+        <div class="step"><b>3 · The scheduler</b><br>The <span class="k">strategy</span> decides <em>which</em> players move and <em>how many</em> steps they get each turn — just like an OS scheduler shares CPU time. Change it below and watch the race change.</div>
+      </div>
+
+      <div class="legend" aria-label="board legend">
+        <span><b class="sw r">0-3</b> RED threads</span>
+        <span><b class="sw b">0-3</b> BLUE threads</span>
+        <span><b class="sw r">⚑</b> RED flag (BLUE's target)</span>
+        <span><b class="sw b">⚑</b> BLUE flag (RED's target)</span>
+        <span><b class="sw g">·</b> empty square</span>
+      </div>
+    </details>
   </header>
 
   <div class="console">
-    <div class="panel">
-      <div class="bar"><span><span class="dot">●</span> arena :: 32×18</span><span id="roundlbl">ronda 000</span></div>
-      <pre id="board" aria-label="tablero de juego en vivo"></pre>
+    <div class="panel boardpanel">
+      <div class="bar"><span><span class="dot">●</span> <span id="arenadim">arena :: 32×18</span></span><span id="roundlbl">round 000</span></div>
+      <pre id="board" aria-label="live game board"></pre>
+      <div id="winbar" role="status"></div>
+      <div id="winover" role="button" tabindex="0" aria-label="game over — play again"></div>
+      <div id="setup">
+        <div class="setup-inner">
+          <div class="setup-head">you are team <b id="myteam">RED</b></div>
+          <div class="setup-hint">place your flag — the enemy takes the opposite corner</div>
+          <div class="corners" role="group" aria-label="choose your flag corner">
+            <button data-c="tl" aria-label="top-left corner">◤</button>
+            <button data-c="tr" aria-label="top-right corner">◥</button>
+            <button data-c="bl" aria-label="bottom-left corner">◣</button>
+            <button data-c="br" aria-label="bottom-right corner">◢</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="side">
       <div class="panel">
-        <div class="bar"><span><span class="dot">▸</span> scheduler</span><span id="stratlbl">USTEDES</span></div>
+        <div class="bar"><span><span class="dot">▸</span> scheduler</span><span id="stratlbl">FAIR SHARE</span></div>
         <div class="schedbody">
-          <div class="turnline">turno: <span class="who" id="turnwho">—</span> · <span id="turnact">esperando barrera</span></div>
-          <div class="kv"><span>equipo ROJO · dist bandera</span><b class="red" id="dr">—</b></div>
-          <div class="kv"><span>equipo AZUL · dist bandera</span><b class="blue" id="db">—</b></div>
-          <div class="kv"><span>quantum</span><b id="qv">5</b></div>
-          <div class="kv"><span>estado</span><b id="state">IDLE</b></div>
+          <div class="turnline" aria-live="polite">turn: <span class="who" id="turnwho">—</span> · <span id="turnact">waiting at barrier</span></div>
+          <div class="kv"><span>team RED · flag dist</span><b class="red" id="dr">—</b></div>
+          <div class="meter red" aria-hidden="true"><i id="mr"></i></div>
+          <div class="kv"><span>team BLUE · flag dist</span><b class="blue" id="db">—</b></div>
+          <div class="meter blue" aria-hidden="true"><i id="mb"></i></div>
+          <div class="kv"><span>state</span><b id="state">IDLE</b></div>
         </div>
       </div>
       <div class="panel">
@@ -180,67 +337,81 @@
     </div>
   </div>
 
-  <div class="controls" role="group" aria-label="controles de simulación">
-    <div class="strat-row" id="stratbtns">
-      <button data-s="0">Secuencial</button>
-      <button data-s="1">Round Robin</button>
-      <button data-s="2">Shortest</button>
-      <button data-s="3" aria-pressed="true">USTEDES</button>
+  <div class="panel ctrlpanel">
+    <div class="bar"><span><span class="dot">▸</span> control</span><span>pick a strategy — it re-runs instantly</span></div>
+    <div class="controls" role="group" aria-label="simulation controls">
+      <div class="ctrl-row">
+        <div class="strat-row" id="stratbtns">
+          <button data-s="0">Sequential</button>
+          <button data-s="1">Round Robin</button>
+          <button data-s="2">Shortest</button>
+          <button data-s="3" aria-pressed="true">Fair Share</button>
+        </div>
+        <span class="sep" aria-hidden="true"></span>
+        <button id="playbtn">▮▮ pause</button>
+        <button id="stepbtn">▸ step</button>
+        <button id="resetbtn">↻ reset</button>
+      </div>
+      <div class="slider-row">
+        <label class="field" id="qfield">quantum
+          <input id="qslider" type="range" min="1" max="9" value="5" aria-label="quantum">
+          <span id="qval">5</span>
+        </label>
+        <label class="field">speed
+          <input id="spdslider" type="range" min="1" max="10" value="6" aria-label="speed">
+          <span id="spdval">6</span>
+        </label>
+      </div>
     </div>
-    <button id="playbtn">▮▮ pausar</button>
-    <button id="stepbtn">▸ paso</button>
-    <button id="resetbtn">↻ reiniciar</button>
-    <label class="field">quantum
-      <input id="qslider" type="range" min="1" max="9" value="5" aria-label="quantum">
-      <span id="qval">5</span>
-    </label>
-    <label class="field">velocidad
-      <input id="spdslider" type="range" min="1" max="10" value="6" aria-label="velocidad">
-    </label>
+  </div>
+
+  <div class="panel bootpanel">
+    <div class="bar"><span><span class="dot">▸</span> boot log · runtime init</span></div>
+    <div id="boot" aria-hidden="true"></div>
   </div>
 
   <section class="strats">
-    <h2>// estrategias de scheduling</h2>
-    <p style="color:var(--text-dim);font-size:13px;max-width:70ch">Cada estrategia imita un algoritmo de scheduler real de un sistema operativo. Todas comparten el mismo movimiento greedy hacia la bandera contraria — lo que cambia es <em>qué</em> thread avanza en cada ronda y <em>cuántos</em> pasos recibe.</p>
+    <h2>// scheduling strategies</h2>
+    <p style="color:var(--text-dim);font-size:13px;max-width:70ch">Each strategy mimics a real OS scheduler algorithm. All share the same greedy movement toward the enemy flag — what changes is <em>which</em> thread advances each round and <em>how many</em> steps it gets.</p>
     <div class="cards">
       <div class="card">
-        <div class="name">SECUENCIAL</div>
+        <div class="name">SEQUENTIAL</div>
         <div class="os">≈ First-Come First-Served</div>
-        <p>Sin orden fijo, cada jugador avanza un paso hacia la bandera. Simple, sin quantum.</p>
+        <p>No fixed order — every player advances one step toward the flag. Simple, no quantum.</p>
       </div>
       <div class="card">
         <div class="name">ROUND ROBIN</div>
         <div class="os">≈ Round Robin</div>
-        <p>El equipo reparte <em>quantum</em> pasos, uno por jugador en orden circular, hasta agotarlo.</p>
+        <p>The team spends <em>quantum</em> steps, one per player in circular order, until it runs out.</p>
       </div>
       <div class="card">
         <div class="name">SHORTEST</div>
         <div class="os">≈ Shortest Job First</div>
-        <p>Solo se mueve el jugador más cercano a la bandera contraria, un paso por turno.</p>
+        <p>Only the player closest to the enemy flag moves, one step per turn.</p>
       </div>
       <div class="card">
-        <div class="name">USTEDES</div>
-        <div class="os">≈ estrategia propia</div>
-        <p>«Todos tienen su chance»: el más lejano recibe la mayor porción del quantum (dividido en potencias de 2), el más cercano la menor.</p>
+        <div class="name">FAIR SHARE</div>
+        <div class="os">≈ proportional-share scheduler</div>
+        <p>“Everyone gets their chance”: the farthest player receives the biggest share of the quantum (split in powers of 2), the closest the smallest.</p>
       </div>
     </div>
   </section>
 
   <section class="build">
-    <h2>// correr el motor real (C++)</h2>
-    <p>La simulación de arriba reproduce la lógica en el navegador. El juego real es C++ nativo con pthreads, <code>semaphore.h</code> y barreras — cloná el repo y compilá:</p>
-    <pre class="sh"><span class="c"># requiere g++ con pthread (Linux / WSL / macOS)</span>
+    <h2>// run the real engine (C++)</h2>
+    <p>The simulation above reproduces the logic in the browser. The real game is native C++ with pthreads, semaphores and barriers — clone the repo and build:</p>
+    <pre class="sh"><span class="c"># requires g++ with pthread (Linux / WSL / macOS)</span>
 <span class="p">$</span> git clone https://github.com/martmallol/multithreading-os
 <span class="p">$</span> cd multithreading-os
-<span class="p">$</span> make            <span class="c"># genera el ejecutable ./juego</span>
-<span class="p">$</span> ./juego         <span class="c"># corre con los inputs de config/</span>
-<span class="p">$</span> make clean      <span class="c"># limpia artefactos de build</span></pre>
-    <p style="margin-top:10px">La estrategia y el quantum se eligen en <code>main.cpp</code>. El tablero, banderas y posiciones iniciales viven en <code>config/config_parameters.csv</code>.</p>
+<span class="p">$</span> make            <span class="c"># builds the ./game executable</span>
+<span class="p">$</span> ./game          <span class="c"># runs with the inputs in config/</span>
+<span class="p">$</span> make clean      <span class="c"># removes build artifacts</span></pre>
+    <p style="margin-top:10px">Strategy and quantum are picked in <code>main.cpp</code>. Board size, flags and starting positions live in <code>config/config_parameters.csv</code>.</p>
   </section>
 
   <footer>
-    <span>Capture the Flag · TP grupal Sistemas Operativos · 2022</span>
-    <span><a href="https://github.com/martmallol/multithreading-os">source →</a></span>
+    <span>Capture the Flag · processes, threads, semaphores &amp; barriers in C++</span>
+    <span><a href="https://github.com/martmallol/multithreading-os/blob/master/README.md">docs →</a> · <a href="https://github.com/martmallol/multithreading-os">source →</a></span>
   </footer>
 </div>
 
@@ -251,7 +422,7 @@ const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 /* ---------- boot sequence ---------- */
 const bootLines = [
   ["init pthread runtime .............. ", "OK", "ok"],
-  ["mmap shared board 32x18 .......... ", "OK", "ok"],
+  [()=>`mmap shared board ${W}x${H} `.padEnd(34,".")+" ", "OK", "ok"],
   ["sem_init turno_rojo, turno_azul .. ", "OK", "ok"],
   ["Barrera(cant_jugadores=4) ........ ", "OK", "ok"],
   ["spawn proc RED  -> 4 threads ..... ", "OK", "ok"],
@@ -259,42 +430,71 @@ const bootLines = [
   ["gameMaster :: belcebu awake ...... ", "READY", "ok"],
 ];
 const bootEl = document.getElementById("boot");
+const bootLabel = l => typeof l[0]==="function" ? l[0]() : l[0];
 function runBoot(done){
   if(RM){
-    bootEl.innerHTML = bootLines.map(l=>l[0]+`<span class="ok">${l[1]}</span>`).join("\n")+"\n";
+    bootEl.innerHTML = bootLines.map(l=>bootLabel(l)+`<span class="ok">${l[1]}</span>`).join("\n")+"\n";
     done(); return;
   }
   let i=0;
   (function next(){
     if(i>=bootLines.length){ bootEl.innerHTML+='<span class="cursor"></span>'; done(); return; }
     const l=bootLines[i++];
-    bootEl.innerHTML += l[0]+`<span class="${l[2]}">${l[1]}</span>\n`;
+    bootEl.innerHTML += bootLabel(l)+`<span class="${l[2]}">${l[1]}</span>\n`;
     setTimeout(next, 130);
   })();
 }
 
 /* ---------- simulation ---------- */
-const W=32, H=18;
+// Arena dimensions: fixed cell size, M×N computed from the available viewport
+// (see computeGrid). Seeded with the classic values until measured.
+let W=32, H=18;
 const STRAT={SEQ:0,RR:1,SHORT:2,UDS:3};
-const STRAT_NAMES=["SECUENCIAL","ROUND ROBIN","SHORTEST","USTEDES"];
+const STRAT_NAMES=["SEQUENTIAL","ROUND ROBIN","SHORTEST","FAIR SHARE"];
 const NPLAYERS=4;
 
 let state;
+// the human player's team (1=RED, 0=BLUE) — assigned randomly each game
+let myTeam=1;
+// the corner id the human placed their flag on (see CORNERS); null until chosen
+let myCorner=null;
 function dist(a,b){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y);}
 
-function makeState(strat, quantum){
-  // flags in opposite corners; players clustered near their own flag
-  const flagR={x:1,y:1}, flagB={x:W-2,y:H-2};
-  const red=[], blue=[];
+// The four corners as flag anchors. Each knows the opposite corner and how to
+// scatter a team's players inward toward the board centre.
+const CORNERS={
+  tl:{id:"tl",flag:()=>({x:1,y:1}),        opp:"br",dx:1, dy:1 },
+  tr:{id:"tr",flag:()=>({x:W-2,y:1}),      opp:"bl",dx:-1,dy:1 },
+  bl:{id:"bl",flag:()=>({x:1,y:H-2}),      opp:"tr",dx:1, dy:-1},
+  br:{id:"br",flag:()=>({x:W-2,y:H-2}),    opp:"tl",dx:-1,dy:-1},
+};
+// scatter NPLAYERS just inside a corner, marching toward the centre
+function spawnTeam(corner){
+  const c=CORNERS[corner], f=c.flag(), team=[];
   for(let i=0;i<NPLAYERS;i++){
-    red.push({x:2+i, y:2+ (i%2), alive:true});
-    blue.push({x:W-3-i, y:H-3-(i%2), alive:true});
+    let x=f.x + c.dx*(1 + (i>>1));   // 2 columns
+    let y=f.y + c.dy*(1 + (i&1));    // 2 rows
+    x=Math.max(0,Math.min(W-1,x));
+    y=Math.max(0,Math.min(H-1,y));
+    team.push({x,y,alive:true});
   }
+  return team;
+}
+
+// Build a game where the human's flag sits on `myCorner` and the rival's on the
+// opposite corner. RED always moves first (turno_rojo), regardless of team.
+function makeState(strat, quantum){
+  const redCorner  = myTeam===1 ? myCorner : CORNERS[myCorner].opp;
+  const blueCorner = myTeam===1 ? CORNERS[myCorner].opp : myCorner;
+  const flagR=CORNERS[redCorner].flag();
+  const flagB=CORNERS[blueCorner].flag();
   return {
     strat, quantum,
     round:0,
     flagR, flagB,
-    red, blue,
+    redCorner, blueCorner,
+    red:spawnTeam(redCorner),
+    blue:spawnTeam(blueCorner),
     winner:null,
     turn:1, // 1=red first (rojo empieza), 0=blue
     rrIdx:{1:0,0:0},
@@ -331,7 +531,7 @@ function teamTurn(s){
   const team = isRed? s.red : s.blue;
   const targetFlag = isRed? s.flagB : s.flagR;
   const tag = isRed? "r":"b";
-  const label = isRed? "ROJO":"AZUL";
+  const label = isRed? "RED":"BLUE";
   let moved=[];
 
   const q = s.quantum;
@@ -391,6 +591,69 @@ function nearestDist(team,flag){
 
 /* ---------- rendering ---------- */
 const boardEl=document.getElementById("board");
+const boardPanel=boardEl.closest(".boardpanel");
+const consoleEl=document.querySelector(".console");
+const headerEl=document.querySelector("header");
+const ctrlPanel=document.querySelector(".ctrlpanel");
+const boardPad=24; // #board horizontal padding (12px * 2)
+const barH=34;     // panel .bar height
+
+// Pin the grid row to the arena's real height so the side column can't grow
+// the layout — stdout scrolls within that height instead.
+function pinArenaHeight(){
+  const h=boardPanel.offsetHeight;
+  if(h>0) consoleEl.style.setProperty("--arena-h", h+"px");
+}
+
+// grid bounds — keep the arena playable and the flags reachable
+const MIN_W=16, MIN_H=8, MAX_W=64, MAX_H=40;
+
+// Measure the pixel size of a single board cell at the fixed font-size.
+function cellMetrics(){
+  const probe=document.createElement("span");
+  probe.style.cssText="position:absolute;visibility:hidden;white-space:pre;"+
+    "font:15px var(--mono);letter-spacing:.36em;line-height:1.32";
+  probe.textContent="·".repeat(20)+"\n·"; // 20 cols wide, 2 rows tall
+  boardEl.appendChild(probe);
+  const w=probe.getBoundingClientRect().width/20;
+  const h=probe.getBoundingClientRect().height/2;
+  probe.remove();
+  return {w:w||10, h:h||20};
+}
+
+// Compute how many columns (M) and rows (N) fit the space that's ACTUALLY
+// left after the header (title + how-to) and the control panel, so the whole
+// page — masthead, console and controls — always fits on screen without
+// scrolling. Cell size stays fixed; the grid shrinks/grows instead.
+function computeGrid(){
+  const {w:cw,h:ch}=cellMetrics();
+  const availW=boardPanel.clientWidth - boardPad;
+
+  // Vertical budget for the console (the arena row).
+  const bodyPad=parseFloat(getComputedStyle(document.body).paddingTop)||0;
+  const headerH=headerEl.offsetHeight;
+  const ctrlH=ctrlPanel.offsetHeight;
+  const gaps=18 /*header mb*/ + 14 /*ctrl mt*/ + 24 /*breathing room*/;
+  // none of these depend on the arena height, so no circular measurement
+  let budget = window.innerHeight - bodyPad*2 - headerH - ctrlH - gaps;
+  // subtract the board's own chrome (title bar + padding) to get room for rows
+  const availH = budget - barH - boardPad;
+
+  let m=Math.floor(availW/cw), n=Math.floor(availH/ch);
+  m=Math.max(MIN_W,Math.min(MAX_W,m));
+  n=Math.max(MIN_H,Math.min(MAX_H,n));
+  const changed = (m!==W || n!==H);
+  W=m; H=n;
+  return changed;
+}
+
+let sizeRAF=0;
+function scheduleSize(){
+  cancelAnimationFrame(sizeRAF);
+  sizeRAF=requestAnimationFrame(()=>{ if(computeGrid()) reset(); pinArenaHeight(); });
+}
+addEventListener("resize", scheduleSize);
+
 function render(s){
   const grid=[];
   for(let y=0;y<H;y++){grid.push(new Array(W).fill(null));}
@@ -412,10 +675,13 @@ function render(s){
   }
   boardEl.innerHTML=html;
 
-  document.getElementById("roundlbl").textContent="ronda "+String(s.round).padStart(3,"0");
-  document.getElementById("dr").textContent=nearestDist(s.red,s.flagB);
-  document.getElementById("db").textContent=nearestDist(s.blue,s.flagR);
-  document.getElementById("qv").textContent=(s.strat===STRAT.SEQ||s.strat===STRAT.SHORT)?"—":s.quantum;
+  document.getElementById("arenadim").textContent="arena :: "+W+"×"+H;
+  document.getElementById("roundlbl").textContent="round "+String(s.round).padStart(3,"0");
+  const ndr=nearestDist(s.red,s.flagB), ndb=nearestDist(s.blue,s.flagR);
+  document.getElementById("dr").textContent=ndr;
+  document.getElementById("db").textContent=ndb;
+  document.getElementById("mr").style.width=Math.max(0,Math.min(100,Math.round(100*(1-ndr/(d0r||1)))))+"%";
+  document.getElementById("mb").style.width=Math.max(0,Math.min(100,Math.round(100*(1-ndb/(d0b||1)))))+"%";
   document.getElementById("stratlbl").textContent=STRAT_NAMES[s.strat];
 }
 
@@ -430,7 +696,7 @@ function log(html,cls){
 }
 
 /* ---------- loop ---------- */
-let running=true, speed=6, stepCount=0;
+let running=true, speed=6, stepCount=0, d0r=1, d0b=1;
 
 function doStep(){
   if(state.winner!==null){ return; }
@@ -440,19 +706,26 @@ function doStep(){
   document.getElementById("turnwho").style.color=res.tag==="r"?"var(--red)":"var(--blue)";
 
   if(res.moved.length){
-    document.getElementById("turnact").textContent="movió threads ["+res.moved.join(",")+"]";
-    log(`<span class="${res.tag}">[${who}]</span> threads {${res.moved.join(",")}} avanzan → bandera`);
+    document.getElementById("turnact").textContent="moved threads ["+res.moved.join(",")+"]";
+    log(`<span class="${res.tag}">[${who}]</span> threads {${res.moved.join(",")}} advance → flag`);
   }else{
-    document.getElementById("turnact").textContent="sin movida (pared/colisión)";
-    log(`<span class="${res.tag}">[${who}]</span> barrera: nadie pudo moverse`);
+    document.getElementById("turnact").textContent="no move (wall/collision)";
+    log(`<span class="${res.tag}">[${who}]</span> barrier: no thread could move`);
   }
 
   if(state.winner!==null){
-    const wl=state.winner===1?"ROJO":"AZUL";
+    const wl=state.winner===1?"RED":"BLUE";
     const wc=state.winner===1?"r":"b";
     document.getElementById("state").textContent="WINNER: "+wl;
     document.getElementById("state").style.color=state.winner===1?"var(--red)":"var(--blue)";
-    log(`<span class="cap">⚑ BANDERA CAPTURADA por equipo ${wl}. sem_post → despertar al perdedor.</span>`,"cap");
+    const wb=document.getElementById("winbar");
+    wb.textContent="⚑ flag captured — team "+wl+" wins · sem_post → game over";
+    wb.classList.add("show");
+    const wo=document.getElementById("winover");
+    wo.innerHTML='<div class="big '+(state.winner===1?"r":"b")+'">⚑ TEAM '+wl+' WINS</div>'+
+      '<div class="sub2">flag captured · click to play again</div>';
+    wo.classList.add("show");
+    log(`<span class="cap">⚑ FLAG CAPTURED by team ${wl}. sem_post → wake the loser.</span>`,"cap");
     render(state);
     flashWin(state.winner);
     running=false; syncPlayBtn();
@@ -488,46 +761,114 @@ function frame(t){
 }
 
 /* ---------- controls ---------- */
+const setupEl=document.getElementById("setup");
 function syncPlayBtn(){
-  document.getElementById("playbtn").textContent = running ? "▮▮ pausar" : "▶ correr";
+  const b=document.getElementById("playbtn");
+  if(state && state.winner!==null){ b.textContent="↻ new game"; return; }
+  b.textContent = running ? "▮▮ pause" : "▶ run";
 }
+
+// Start a brand-new game: assign a random team and ask the player to place
+// their flag. The board stays idle behind the setup overlay until they pick.
+function newGame(){
+  myTeam = Math.random()<0.5 ? 1 : 0;
+  myCorner = null;
+  const mt=document.getElementById("myteam");
+  mt.textContent = myTeam===1 ? "RED" : "BLUE";
+  mt.className = myTeam===1 ? "" : "blue";
+  document.getElementById("winbar").classList.remove("show");
+  document.getElementById("winover").classList.remove("show");
+  setupEl.classList.remove("hide");
+  running=false;
+  logEl.innerHTML="";
+  document.getElementById("state").textContent="AWAITING FLAG";
+  document.getElementById("state").style.color="var(--amber)";
+  document.getElementById("turnwho").textContent="—";
+  document.getElementById("turnact").textContent="place your flag to start";
+  // draw an empty arena as a backdrop (uses last-known corners, harmless)
+  if(!state){ myCorner="tl"; state=makeState(readStrat(),readQ()); myCorner=null; }
+  render(state);
+  pinArenaHeight();
+  syncPlayBtn();
+}
+
+const readStrat=()=>parseInt(document.querySelector('#stratbtns [aria-pressed="true"]').dataset.s,10);
+const readQ=()=>parseInt(document.getElementById("qslider").value,10);
+
+// (Re)build and run the current game — keeps the same team & chosen corner.
+// Used by strategy / quantum / reset, i.e. tweaks that shouldn't re-prompt.
 function reset(){
-  const strat=parseInt(document.querySelector('#stratbtns [aria-pressed="true"]').dataset.s,10);
-  const q=parseInt(document.getElementById("qslider").value,10);
+  if(myCorner===null){ newGame(); return; }
+  const strat=readStrat(), q=readQ();
   state=makeState(strat,q);
+  d0r=nearestDist(state.red,state.flagB);
+  d0b=nearestDist(state.blue,state.flagR);
+  setupEl.classList.add("hide");
+  document.getElementById("winbar").classList.remove("show");
+  document.getElementById("winover").classList.remove("show");
+  const noQ=(strat===STRAT.SEQ||strat===STRAT.SHORT);
+  document.getElementById("qfield").classList.toggle("off",noQ);
+  document.getElementById("qslider").disabled=noQ;
   logEl.innerHTML="";
   document.getElementById("state").textContent="RUNNING";
   document.getElementById("state").style.color="var(--text)";
-  log(`<span class="sys">== reset :: estrategia ${STRAT_NAMES[strat]} · quantum ${q} ==</span>`,"sys");
-  log(`<span class="sys">rojo empieza primero (turno_rojo posteado)</span>`,"sys");
+  const youAre=myTeam===1?"RED":"BLUE";
+  log(`<span class="sys">== you are ${youAre} · flag @ ${myCorner.toUpperCase()} · ${STRAT_NAMES[strat]} q${q} ==</span>`,"sys");
+  log(`<span class="sys">red goes first (turno_rojo posted)</span>`,"sys");
   render(state);
+  pinArenaHeight();
   running=true; syncPlayBtn();
 }
+
+// Player picked a corner → lock it in and start.
+document.querySelector(".corners").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  myCorner=b.dataset.c;
+  reset();
+});
 
 document.getElementById("stratbtns").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   document.querySelectorAll("#stratbtns button").forEach(x=>x.setAttribute("aria-pressed","false"));
   b.setAttribute("aria-pressed","true");
-  reset();
+  if(myCorner!==null) reset();   // keep same match, just re-run with new strategy
 });
 document.getElementById("playbtn").addEventListener("click",()=>{
-  if(state.winner!==null) reset();
+  if(state && state.winner!==null) newGame();
+  else if(myCorner===null) newGame();
   else { running=!running; syncPlayBtn(); }
 });
 document.getElementById("stepbtn").addEventListener("click",()=>{
+  if(myCorner===null) return;
   running=false; syncPlayBtn();
   if(state.winner===null) doStep();
 });
-document.getElementById("resetbtn").addEventListener("click",reset);
+document.getElementById("resetbtn").addEventListener("click",newGame);
+const winoverEl=document.getElementById("winover");
+winoverEl.addEventListener("click",newGame);
+winoverEl.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); newGame(); } });
 document.getElementById("qslider").addEventListener("input",e=>{
   document.getElementById("qval").textContent=e.target.value;
-  reset();
+  if(myCorner!==null) reset();
 });
-document.getElementById("spdslider").addEventListener("input",e=>{ speed=parseInt(e.target.value,10); });
+document.getElementById("spdslider").addEventListener("input",e=>{ speed=parseInt(e.target.value,10); document.getElementById("spdval").textContent=e.target.value; });
+// collapsing/expanding the guide changes header height → re-fit the arena
+document.querySelector(".guide").addEventListener("toggle",scheduleSize);
 
 /* ---------- go ---------- */
-runBoot(()=>{
-  reset();
+// on small screens, collapse the how-it-works guide by default
+if(matchMedia("(max-width:640px)").matches){
+  document.querySelector(".guide").removeAttribute("open");
+}
+// size the arena to the available viewport, then show the flag-placement
+// setup so the console is visible on entry; the boot log animates below.
+computeGrid();
+newGame();
+requestAnimationFrame(()=>{
+  // re-fit once fonts/layout settle, without re-rolling the team
+  if(computeGrid() && state) render(state);
+  pinArenaHeight();
   requestAnimationFrame(frame);
 });
+runBoot(()=>{});
 </script>

@@ -1,59 +1,62 @@
-# Operative Systems Group Project - Capture the Flag!
+# Capture the Flag — a multithreaded scheduler game
 
-## 2022, 2nd Semester
+A twist on *Capture the Flag* where **every team is a process** and **every player is a thread**. Two teams race across a grid toward the enemy flag; the first to capture it wins. A **Game Master** arbitrates the whole thing with semaphores, barriers and mutexes — so the game stays parallel without race conditions or deadlocks.
 
-## Compilation
+The catch: how each team moves is decided by a **scheduling strategy** that mimics a real-world OS scheduler (Round Robin, First-Come First-Served, Shortest Job First, and a proportional-share strategy). Swap the strategy and the race changes.
 
-Execute the following command:
+## Play it in the browser (no build needed)
 
-```
-make
-```
-
-This will create the game's executable called `juego`. Once you open it, the game will run with the inputs located in the .csv files that belong in the `config/` directory.
-
-If you want to delete every file that was created by the `Makefile` one, execute the following command:
+The fastest way to try it is the web demo — it reproduces the game logic in JavaScript, no compiler required:
 
 ```
-make clean
+docs/index.html
 ```
 
-You can find a game example for every possible strategy on the following files:
--  `resultadoSECUENCIAL.txt`
+Just open that file in any browser (or serve the `docs/` folder). On start you're **randomly assigned a team** and asked to **place your flag in one of the four corners** — the enemy takes the opposite corner. Then pick a scheduling strategy (and quantum) and watch the two teams race. You can pause, step, reset, and adjust speed live.
+
+To publish it as a live site, enable **GitHub Pages** pointing at the `docs/` folder.
+
+## Build & run the native engine (C++)
+
+The real engine is native C++ with pthreads, `semaphore.h` and barriers. On Linux / WSL / macOS with `g++`:
+
+```
+make            # builds the ./game executable
+./game          # runs with the inputs in config/
+make clean      # removes build artifacts
+```
+
+`make` produces an executable called `game`, which reads its inputs from the `.csv` files in the `config/` directory and prints how the game unfolded to the console.
+
+You can find a sample run for every strategy in these files:
+- `resultadoSECUENCIAL.txt`
 - `resultadoRR.txt`
 - `resultadoSHORTEST.txt`
 - `resultadoUDS.txt`
 
-## Overview
-This game's known as *'Capture the Flag'*. It has a major tweak though: every team is a **process** and  every player of it is a **thread**!
+## How the game works
 
-There are two teams: 'red' & 'blue'. The 'red' team always starts first. Both teams move on its turn and a player only has 4 movement choices: Up, Down, Left and Right. It a player reaches the limit of the map, it won't be able tu cross out of bounds. Moreover, a player won't be able to reach a map square where another player is actually standing on.
+- Two teams — **red** and **blue** — start in opposite corners. Red always moves first.
+- On its turn, a team's players step one square (Up / Down / Left / Right) toward the enemy flag. Players can't leave the map or move onto a square another player occupies.
+- The first team to reach the enemy flag wins. If every player of both teams gets stuck, the game ends in a **draw**.
 
-The first team that captures the opponent's flag is the winner. 
+Strategy and quantum for the native engine are chosen in `main.cpp`; board size, flags and starting positions live in `config/config_parameters.csv`.
 
-The entity that will take charge on the game's direction will be **'The Game Master'**. 
+## Strategies
 
-It's possible, that the game could be finished on a draw. That happens when every player of both teams gets stuck and can't move on.
+Each strategy mimics a real scheduler algorithm. They all share the same greedy movement toward the enemy flag — what changes is *which* thread advances each round and *how many* steps it gets. (The UI shows friendly names; the C++ `estrategia` enum names are noted in parentheses.)
 
-### Users should be able to:
-- Select a **strategy** (with a proper *quantum*) for both teams on the `main.cpp` file.
-- Compile the game and run it!
-- Read how the game unfolded and its final result on the **console**.
+- **Sequential** *(enum `SECUENCIAL`, ≈ First-Come First-Served):* No fixed order — every player advances one step toward the flag. No quantum.
+- **Round Robin** *(enum `RR`):* The team spends *quantum* steps, one per player in circular order, until it runs out. If there are more players than quantum, each player moves once; if quantum exceeds the player count, the round wraps around until the quantum is spent.
+- **Shortest** *(enum `SHORTEST`, ≈ Shortest Job First):* Only the player closest to the enemy flag moves, one step per turn.
+- **Fair Share** *(enum `USTEDES`, ≈ proportional-share scheduler):* "Everyone gets their chance" — the farthest player from the flag is assigned the most steps, the closest the least, with the share scaled by the *quantum*.
 
-### Strategies
-The strategies were made with the intention of mimmiching the algorithms from a real-world Scheduler (for example: Round Robin, First-come First-served, Shortest Job First, etc.).
+## Built with
 
-These are the strategies available in the game:
-- **Sequential (called: SECUENCIAL):** Without a specific order, it moves every player one step closer to the opponent's flag.
-- **Round Robin (called: RR):** The team will move *'quantum'* steps, one per player until the quantum runs out. If the amount of players is greater than the quantum, every player of the team will move 1 step. On the other hand, if the quantum is greater than the amount of players that the team presents, once the last player moves, the round starts over again, until the quantum runs out.
-- **Shortest Distance First (called: SHORTEST):** The player closest to the opponent's flag will be the only that will move. It will move only one step at a turn.
-- **The programmer's strategy (called: USTEDES):** The strategy's moto is: *"Everyone will have their chance"*. The farthest player to the opponent's flag will be the one assigned with the most steps available. The second farthests will be assigned with the second most steps available and so on... That makes the player with the shortest distance to the opponent's flag being assigned the least amount of steps available for the team. The amount of steps that every has depends on the *quantum* value.
+C++, processes, threads, semaphores, barriers and mutexes — plus a self-contained HTML/CSS/JS front end for the browser demo.
 
-### Built with
-C++, processes, threads, semaphores, barriers, and mutexes.
+## Notes on the concurrency design
 
-### What we learnt
-- How to prevent **race conditions** and **deadlocks** by implementing **semaphores**, **mutexes** and **barriers** on our game. These tools are *very* important while programming a multithread application/game.
-- Manipulate processes and threads so we can make them do what we intend to, but *not* making the game sequential as a consecuence. The parallelism was one of the most important things to preserve, and it was indeed preserved.
-- The importance, power and efficieny of 'parallelism' over 'sequentialism'.
-- How to create a legible & clean Makefile that takes charge of the whole project's compilation.
+- Semaphores, mutexes and barriers coordinate the threads to avoid **race conditions** and **deadlocks**.
+- Processes and threads are driven deliberately while preserving real parallelism — the game is never silently serialized.
+- The `Makefile` handles the whole build.

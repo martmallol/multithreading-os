@@ -57,7 +57,7 @@ To keep every match interesting — rather than always favouring whoever moves f
 
 - **Independent strategies per team.** You choose your strategy; the enemy gets a *different* random one. The outcome reflects which scheduler suits the map, not just turn order.
 - **Randomised starting positions.** Each team scatters its four threads at random inside its home corner (clear of walls and each other), so the two sides are no longer perfectly symmetric.
-- **Random walls.** Obstacles (`▓`) are sprinkled across the board, placed **point-symmetrically** through the centre so neither side gets more of them, and always keeping each flag's immediate area clear.
+- **Random walls.** Obstacles (`■`) are sprinkled across the board, placed **point-symmetrically** through the centre so neither side gets more of them, and always keeping each flag's immediate area clear.
 - **Shared quantum.** Both teams use the same quantum value; the slider is enabled whenever *either* team's strategy uses one (Round Robin or Fair Share).
 
 ### Movement & draw detection (browser demo)

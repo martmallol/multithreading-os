@@ -92,6 +92,7 @@
   .legend .r{color:var(--red)}
   .legend .b{color:var(--blue)}
   .legend .g{color:var(--grid-dim)}
+  .legend .wall{color:var(--phosphor-faint)}
 
   /* ---- console layout ---- */
   /* Row height is pinned to the arena (--arena-h, set from JS) so the side
@@ -334,9 +335,9 @@
     <details class="guide" open>
       <summary>how it works &amp; legend</summary>
       <div class="howto">
-        <div class="step"><b>1 · The board</b><br>Two teams start in opposite corners of a grid. Each team's goal is to reach the <span class="k">enemy flag</span> before the other does.</div>
-        <div class="step"><b>2 · Who moves</b><br>Teams alternate turns (RED first). On its turn, a team's players step one square toward the enemy flag — blocked by walls and by other players.</div>
-        <div class="step"><b>3 · The scheduler</b><br>The <span class="k">strategy</span> decides <em>which</em> players move and <em>how many</em> steps they get each turn — just like an OS scheduler shares CPU time. Change it below and watch the race change.</div>
+        <div class="step"><b>1 · Place your flag</b><br>You're assigned a <span class="k">random team</span> and pick which corner your flag goes in — the enemy takes the opposite one. Each team's goal is to reach the <span class="k">enemy flag</span> first.</div>
+        <div class="step"><b>2 · Who moves</b><br>Teams alternate turns (RED first). On its turn, a team's players step one square toward the enemy flag, routing around <span class="k">walls</span> and other players.</div>
+        <div class="step"><b>3 · The scheduler</b><br>You pick <em>your</em> <span class="k">strategy</span>; the enemy gets a different one. It decides <em>which</em> players move and <em>how many</em> steps they get each turn — just like an OS scheduler shares CPU time.</div>
       </div>
 
       <div class="legend" aria-label="board legend">
@@ -344,6 +345,7 @@
         <span><b class="sw b">0-3</b> BLUE threads</span>
         <span><b class="sw r">⚑</b> RED flag (BLUE's target)</span>
         <span><b class="sw b">⚑</b> BLUE flag (RED's target)</span>
+        <span><b class="sw wall">■</b> wall</span>
         <span><b class="sw g">·</b> empty square</span>
       </div>
     </details>
@@ -466,7 +468,7 @@ const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------- boot sequence ---------- */
 const bootLines = [
-  ["init pthread runtime .............. ", "OK", "ok"],
+  ["init pthread runtime ............. ", "OK", "ok"],
   [()=>`mmap shared board ${W}x${H} `.padEnd(34,".")+" ", "OK", "ok"],
   ["sem_init turno_rojo, turno_azul .. ", "OK", "ok"],
   ["Barrera(cant_jugadores=4) ........ ", "OK", "ok"],
@@ -827,7 +829,7 @@ function render(s){
   if(s.walls && !setupMode){
     for(const w of s.walls){
       const [wx,wy]=w.split(",").map(Number);
-      if(inBounds(wx,wy)) grid[wy][wx]={c:"▓",cls:"wall"};
+      if(inBounds(wx,wy)) grid[wy][wx]={c:"■",cls:"wall"};
     }
   }
   if(setupMode){
